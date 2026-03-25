@@ -65,6 +65,18 @@ DATABASE_PATH = str(_BASE_DIR / os.getenv("DATABASE_PATH", "data/leads.db"))
 PREVIEW_BASE_URL = os.getenv("PREVIEW_BASE_URL", "http://localhost:8080/previews")
 DAILY_RUN_TIME = os.getenv("DAILY_RUN_TIME", "08:00")
 
+# ─── Čas pošiljanja emailov ────────────────────────────────────────────────────
+SEND_WINDOW_START = os.getenv("SEND_WINDOW_START", "07:00")
+SEND_WINDOW_END   = os.getenv("SEND_WINDOW_END",   "18:00")
+SEND_WEEKEND      = os.getenv("SEND_WEEKEND", "false").lower() == "true"
+
+# ─── Overnight način ──────────────────────────────────────────────────────────
+OVERNIGHT_SCRAPE_TIME = os.getenv("OVERNIGHT_SCRAPE_TIME", "22:00")
+OVERNIGHT_SEND_TIME   = os.getenv("OVERNIGHT_SEND_TIME", DAILY_RUN_TIME)
+
+# ─── Unsubscribe URL (za List-Unsubscribe header) ─────────────────────────────
+UNSUBSCRIBE_BASE_URL = os.getenv("UNSUBSCRIBE_BASE_URL", "")
+
 # ─── EU — po-državna konfiguracija ───────────────────────────────────────────
 COUNTRIES: dict[str, dict] = {
     "si": {

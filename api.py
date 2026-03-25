@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -246,6 +246,39 @@ async def api_unsubscribe(body: UnsubscribeRequest):
         conn.execute(
             "INSERT OR IGNORE INTO unsubscribes (email, unsubscribed_at) VALUES (?, datetime('now'))",
             (body.email.lower().strip(),),
+        )
+    return {"ok": True}
+
+
+@app.get("/unsubscribe", summary="One-click odjava (za email List-Unsubscribe header)", include_in_schema=False)
+async def one_click_unsubscribe(email: str = Query(...)):
+    """GET endpoint za one-click unsubscribe iz email klientov (Gmail, Outlook)."""
+    clean = email.lower().strip()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO unsubscribes (email, unsubscribed_at) VALUES (?, datetime('now'))",
+            (clean,),
+        )
+    return HTMLResponse(content=f"""<!DOCTYPE html>
+<html lang="sl"><head><meta charset="UTF-8">
+<title>Odjava uspešna</title>
+<style>body{{font-family:Arial,sans-serif;text-align:center;padding:60px;background:#f5f5f5}}
+.box{{background:white;border-radius:12px;padding:40px;max-width:400px;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,.08)}}
+h2{{color:#22c55e}}p{{color:#666}}</style></head>
+<body><div class="box">
+<h2>✓ Odjava uspešna</h2>
+<p>Naslov <strong>{clean}</strong> je bil odjavljen.<br>Ne boste več prejemali naših sporočil.</p>
+</div></body></html>""")
+
+
+@app.post("/unsubscribe", summary="One-click POST odjava (RFC 8058)", include_in_schema=False)
+async def one_click_unsubscribe_post(email: str = Query(...)):
+    """POST endpoint za RFC 8058 List-Unsubscribe-Post one-click."""
+    clean = email.lower().strip()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO unsubscribes (email, unsubscribed_at) VALUES (?, datetime('now'))",
+            (clean,),
         )
     return {"ok": True}
 

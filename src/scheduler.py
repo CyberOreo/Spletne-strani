@@ -9,7 +9,10 @@ from datetime import datetime
 
 import schedule
 
-from src.config import DAILY_RUN_TIME, DAILY_EMAIL_LIMIT, DAILY_BULK_CONFIG, SCRAPE_CONCURRENCY
+from src.config import (
+    DAILY_RUN_TIME, DAILY_EMAIL_LIMIT, DAILY_BULK_CONFIG, SCRAPE_CONCURRENCY,
+    OVERNIGHT_SCRAPE_TIME, OVERNIGHT_SEND_TIME,
+)
 from src.database import init_db, gdpr_cleanup
 
 logger = logging.getLogger(__name__)
@@ -273,3 +276,59 @@ def scheduler_status() -> dict:
         "jobs": len(schedule.jobs),
         "daily_time": DAILY_RUN_TIME,
     }
+
+
+# ─── Overnight scheduler ──────────────────────────────────────────────────────
+
+def start_overnight_scheduler(daily_limit: int = DAILY_EMAIL_LIMIT, dry_run: bool = False) -> None:
+    """
+    Overnight način:
+    - Ob OVERNIGHT_SCRAPE_TIME (privzeto 22:00): scraping + kvalifikacija + generacija emailov
+    - Ob OVERNIGHT_SEND_TIME (privzeto 08:00): pošiljanje emailov
+    Idealno za pustiti PC čez noč.
+    """
+    global _running, _scheduler_thread
+    if _running:
+        logger.warning("Scheduler že teče")
+        return
+
+    _running = True
+
+    def scrape_job():
+        logger.info("OVERNIGHT: Začenjam nočni scraping ob %s", datetime.now().strftime("%H:%M"))
+        asyncio.run(run_daily_pipeline(
+            daily_limit=daily_limit,
+            dry_run=dry_run,
+            skip_send=True,   # ponoči samo scrapers + emaili, brez pošiljanja
+        ))
+        logger.info("OVERNIGHT: Nočni scraping končan. Emaili bodo poslani ob %s", OVERNIGHT_SEND_TIME)
+
+    def send_job():
+        logger.info("OVERNIGHT: Začenjam jutranje pošiljanje ob %s", datetime.now().strftime("%H:%M"))
+        asyncio.run(run_daily_pipeline(
+            daily_limit=daily_limit,
+            dry_run=dry_run,
+            skip_scrape=True,  # zjutraj samo pošiljanje
+        ))
+        logger.info("OVERNIGHT: Pošiljanje končano.")
+
+    def loop():
+        logger.info(
+            "Overnight scheduler zagnan:\n"
+            "  Scraping ob: %s (vsak dan)\n"
+            "  Pošiljanje ob: %s (pon–pet)\n",
+            OVERNIGHT_SCRAPE_TIME, OVERNIGHT_SEND_TIME,
+        )
+        schedule.every().day.at(OVERNIGHT_SCRAPE_TIME).do(scrape_job)
+        schedule.every().monday.at(OVERNIGHT_SEND_TIME).do(send_job)
+        schedule.every().tuesday.at(OVERNIGHT_SEND_TIME).do(send_job)
+        schedule.every().wednesday.at(OVERNIGHT_SEND_TIME).do(send_job)
+        schedule.every().thursday.at(OVERNIGHT_SEND_TIME).do(send_job)
+        schedule.every().friday.at(OVERNIGHT_SEND_TIME).do(send_job)
+        while _running:
+            schedule.run_pending()
+            time.sleep(30)
+
+    _scheduler_thread = threading.Thread(target=loop, daemon=True, name="overnight-scheduler")
+    _scheduler_thread.start()
+    logger.info("Overnight scheduler zagnan")
