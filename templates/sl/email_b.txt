@@ -1,0 +1,23 @@
+Zadeva: Vaša spletna stran — priložnost za posodobitev
+
+Spoštovani {greeting},
+
+med pregledom spletnih strani {activity} v vaši regiji sem naletel na stran {company_name}. Opazil sem, da je bila verjetno narejena pred nekaj leti in bi ji dobro dela osvežitev — posebej za mobilne naprave, ki jih danes uporablja večina strank.
+
+{industry_hook}
+
+Moderna spletna stran vam prinese:
+• Več klicev in povpraševanj
+• Boljšo uvrstitev na Google
+• Profesionalen vtis pri novih strankah
+
+Rad bi vam pokazal, kako bi vaša nova stran lahko izgledala — brez obveznosti in brezplačno.
+
+Ali vam ustreza kratek klic ta ali prihodnji teden?
+
+Lep pozdrav,
+{sender_name}
+{sender_phone}
+
+---
+Če ne želite prejemati sporočil, odgovorite z besedo ODJAVA.

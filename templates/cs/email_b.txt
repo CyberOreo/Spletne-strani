@@ -1,0 +1,23 @@
+Předmět: Vaše webové stránky — příležitost k modernizaci
+
+Vážený/á {greeting},
+
+při prohlížení webových stránek v oboru {activity} jsem narazil na stránky {company_name}. Všiml jsem si, že byly pravděpodobně vytvořeny před několika lety a mohly by se osvěžit — zejména pro mobilní zařízení, která dnes používá většina zákazníků.
+
+{industry_hook}
+
+Moderní webové stránky vám přinesou:
+• Více hovorů a poptávek
+• Lepší umístění na Google
+• Profesionální dojem u nových zákazníků
+
+Rád bych vám ukázal, jak by vaše nová stránka mohla vypadat — bez závazků a zdarma.
+
+Hodil by se vám krátký hovor tento nebo příští týden?
+
+S pozdravem,
+{sender_name}
+{sender_phone}
+
+---
+Pokud si nepřejete dostávat zprávy, odpovězte slovem ODHLÁSIT.

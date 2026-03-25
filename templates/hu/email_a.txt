@@ -1,0 +1,24 @@
+Tárgy: {company_name} — Ingyenes ajánlat weboldal készítéshez
+
+Tisztelt {greeting},
+
+{activity} keresése közben {city}-ban észrevettem, hogy {company_name}-nak nincs weboldala. Manapság az ügyfelek többsége először online keres szolgáltatásokat — Google-jelenlét nélkül naponta mulaszt el lehetőségeket.
+
+{industry_hook}
+
+{activity} területén egyszerű, de hatékony weboldalak készítésére specializálódtam — olyan oldal, amely meggyőzi ügyfeleit, hogy éppen önt hívják fel.
+
+Mit kínálok:
+• Modern, mobilbarát weboldal
+• Google-láthatóság (alap SEO-optimalizálás)
+• Elkészítés 7–14 napon belül
+• Rejtett költségek nélkül
+
+Szívesen küldök egy ingyenes, kötelezettség nélküli ajánlatot. Van 10 perce ezen a héten egy rövid telefonhívásra?
+
+Üdvözlettel,
+{sender_name}
+{sender_phone}
+
+---
+Ha nem kíván több üzenetet kapni, válaszoljon a LEIRATKOZÁS szóval.

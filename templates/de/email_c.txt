@@ -1,0 +1,16 @@
+Betreff: Re: Webseite für {company_name}
+
+Guten Tag,
+
+vor Kurzem habe ich Ihnen eine Anfrage bezüglich einer Webseite für {company_name} geschickt. Ich verstehe, dass Sie beschäftigt sind — daher halte ich es kurz.
+
+Falls Sie interessiert sind, stehe ich für ein kurzes Gespräch zur Verfügung — ich passe mich Ihrem Terminplan an.
+
+Falls das Projekt derzeit nicht aktuell ist, teilen Sie mir das bitte kurz mit, und ich melde mich nicht mehr.
+
+Mit freundlichen Grüßen,
+{sender_name}
+{sender_phone}
+
+---
+Wenn Sie keine weiteren Nachrichten erhalten möchten, antworten Sie mit ABMELDEN.

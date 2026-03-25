@@ -1,0 +1,23 @@
+Tárgy: Weboldala — megújítási lehetőség
+
+Tisztelt {greeting},
+
+{activity} területén böngészve weboldalak között rátaláltam a {company_name} oldalára. Észrevettem, hogy valószínűleg néhány évvel ezelőtt készült, és jól jönne egy frissítés — különösen mobileszközökre, amelyeket ma az ügyfelek többsége használ.
+
+{industry_hook}
+
+A modern weboldal önnek hozza:
+• Több telefonhívást és megkeresést
+• Jobb Google-helyezést
+• Professzionális benyomást az új ügyfelek körében
+
+Szívesen megmutatnám, hogyan nézhetne ki az új oldala — kötelezettség nélkül és ingyenesen.
+
+Megfelelne egy rövid telefonhívás ezen vagy a jövő héten?
+
+Üdvözlettel,
+{sender_name}
+{sender_phone}
+
+---
+Ha nem kíván több üzenetet kapni, válaszoljon a LEIRATKOZÁS szóval.

@@ -1,0 +1,24 @@
+Predmet: {company_name} — Besplatna ponuda za web stranicu
+
+Poštovani {greeting},
+
+tražeći {activity} u {city}, primijetio sam da {company_name} nema web stranicu. U današnje vrijeme većina klijenata prvo traži usluge na internetu — bez vidljivosti na Googleu, svakodnevno propuštate prilike.
+
+{industry_hook}
+
+Specijaliziran sam za izradu jednostavnih, ali učinkovitih web stranica za {activity} — stranica koja će vaše klijente uvjeriti da nazovu upravo vas.
+
+Što nudim:
+• Moderna, mobilna web stranica
+• Vidljivost na Googleu (osnovna SEO optimizacija)
+• Izrada za 7–14 dana
+• Bez skrivenih troškova
+
+Rado bih vam poslao besplatnu ponudu bez obveza. Imate li 10 minuta ovog tjedna za kratak razgovor?
+
+Srdačan pozdrav,
+{sender_name}
+{sender_phone}
+
+---
+Ako ne želite primati poruke, odgovorite s riječju ODJAVA.

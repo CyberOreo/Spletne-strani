@@ -1,0 +1,24 @@
+Zadeva: {company_name} — Brezplačna ponudba za spletno stran
+
+Spoštovani {greeting},
+
+med iskanjem {activity} v {city} sem opazil, da {company_name} še nimate spletne strani. V današnjem času večina strank najprej poišče storitev na spletu — brez vidnosti na Google-u zamujate priložnosti vsak dan.
+
+{industry_hook}
+
+Specializiram se za izdelavo enostavnih, a učinkovitih spletnih strani za {activity} — stran, ki bo vaše stranke prepričala, da pokličejo ravno vas.
+
+Kar ponujam:
+• Moderna, mobilna spletna stran
+• Vidnost na Google (osnovna SEO optimizacija)
+• Postavitev v 7–14 dneh
+• Brez skritih stroškov
+
+Rad bi vam poslal brezplačno ponudbo brez obveznosti. Ali imate 10 minut ta teden za kratek klic?
+
+Lep pozdrav,
+{sender_name}
+{sender_phone}
+
+---
+Če ne želite prejemati sporočil, odgovorite z besedo ODJAVA.

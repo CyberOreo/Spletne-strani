@@ -1,0 +1,16 @@
+Tárgy: Re: Weboldal — {company_name}
+
+Tisztelt,
+
+nemrég küldtem önnek egy megkeresést a {company_name} weboldalával kapcsolatban. Megértem, hogy elfoglalt — ezért rövid leszek.
+
+Ha a téma érdekli, rendelkezésre állok egy rövid telefonhíváshoz — alkalmazkodom az ön menetrendjéhez.
+
+Ha a projekt jelenleg nem aktuális, csak szóljon, és nem fogom többé zaklatni.
+
+Üdvözlettel,
+{sender_name}
+{sender_phone}
+
+---
+Ha nem kíván több üzenetet kapni, válaszoljon a LEIRATKOZÁS szóval.

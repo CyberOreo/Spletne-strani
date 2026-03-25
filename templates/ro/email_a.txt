@@ -1,0 +1,24 @@
+Subiect: {company_name} — Ofertă gratuită pentru site web
+
+Stimate/Stimată {greeting},
+
+căutând {activity} în {city}, am observat că {company_name} nu are un site web. În zilele noastre, majoritatea clienților caută servicii online mai întâi — fără vizibilitate pe Google, pierdeți oportunități în fiecare zi.
+
+{industry_hook}
+
+Sunt specializat în crearea de site-uri web simple, dar eficiente pentru {activity} — o pagină care îi va convinge pe clienții dvs. să vă contacteze pe dvs.
+
+Ce ofer:
+• Site web modern, optimizat pentru mobil
+• Vizibilitate pe Google (optimizare SEO de bază)
+• Realizare în 7–14 zile
+• Fără costuri ascunse
+
+Aș dori să vă trimit o ofertă gratuită fără obligații. Aveți 10 minute săptămâna aceasta pentru un scurt apel?
+
+Cu stimă,
+{sender_name}
+{sender_phone}
+
+---
+Dacă nu doriți să primiți mesaje, răspundeți cu cuvântul DEZABONARE.

@@ -1,0 +1,23 @@
+Oggetto: Il vostro sito web — opportunità di aggiornamento
+
+{greeting},
+
+esaminando i siti web nel settore {activity} ho trovato la pagina di {company_name}. Ho notato che probabilmente è stata creata alcuni anni fa e potrebbe beneficiare di un aggiornamento — specialmente per i dispositivi mobili, utilizzati oggi dalla maggior parte dei clienti.
+
+{industry_hook}
+
+Un sito web moderno vi porta:
+• Più chiamate e richieste
+• Migliore posizionamento su Google
+• Impressione professionale sui nuovi clienti
+
+Vorrei mostrarvi come potrebbe apparire il vostro nuovo sito — senza impegno e gratuitamente.
+
+Sarebbe possibile una breve chiamata questa o la prossima settimana?
+
+Cordiali saluti,
+{sender_name}
+{sender_phone}
+
+---
+Se non desidera ricevere ulteriori messaggi, risponda con CANCELLA.

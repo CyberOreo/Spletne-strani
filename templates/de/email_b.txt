@@ -1,0 +1,23 @@
+Betreff: Ihre Webseite — Chance zur Modernisierung
+
+{greeting},
+
+bei der Überprüfung von Webseiten im Bereich {activity} bin ich auf die Seite von {company_name} gestoßen. Mir ist aufgefallen, dass sie wahrscheinlich vor einigen Jahren erstellt wurde und eine Auffrischung gebrauchen könnte — besonders für Mobilgeräte, die heute von den meisten Kunden genutzt werden.
+
+{industry_hook}
+
+Eine moderne Webseite bringt Ihnen:
+• Mehr Anrufe und Anfragen
+• Besseres Google-Ranking
+• Professionellen Eindruck bei Neukunden
+
+Ich würde Ihnen gerne zeigen, wie Ihre neue Seite aussehen könnte — unverbindlich und kostenlos.
+
+Wäre ein kurzes Gespräch diese oder nächste Woche möglich?
+
+Mit freundlichen Grüßen,
+{sender_name}
+{sender_phone}
+
+---
+Wenn Sie keine weiteren Nachrichten erhalten möchten, antworten Sie mit ABMELDEN.

@@ -1,0 +1,24 @@
+Oggetto: {company_name} — Offerta gratuita per il vostro sito web
+
+{greeting},
+
+cercando {activity} a {city}, ho notato che {company_name} non ha un sito web. Al giorno d'oggi la maggior parte dei clienti cerca servizi online prima di tutto — senza presenza su Google, perdete opportunità ogni giorno.
+
+{industry_hook}
+
+Sono specializzato nella creazione di siti web semplici ma efficaci per {activity} — una pagina che convincerà i vostri clienti a contattare proprio voi.
+
+Cosa offro:
+• Sito web moderno e ottimizzato per mobile
+• Visibilità su Google (ottimizzazione SEO di base)
+• Realizzazione in 7–14 giorni
+• Nessun costo nascosto
+
+Vorrei inviarvi un preventivo gratuito senza impegno. Avete 10 minuti questa settimana per una breve chiamata?
+
+Cordiali saluti,
+{sender_name}
+{sender_phone}
+
+---
+Se non desidera ricevere ulteriori messaggi, risponda con CANCELLA.

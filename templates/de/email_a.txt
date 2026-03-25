@@ -1,0 +1,24 @@
+Betreff: {company_name} — Kostenloses Angebot für Ihre Webseite
+
+{greeting},
+
+bei der Suche nach {activity} in {city} ist mir aufgefallen, dass {company_name} noch keine Webseite hat. Heutzutage suchen die meisten Kunden zuerst online nach Dienstleistungen — ohne Google-Präsenz verpassen Sie täglich Möglichkeiten.
+
+{industry_hook}
+
+Ich bin spezialisiert auf die Erstellung einfacher, aber wirkungsvoller Webseiten für {activity} — eine Seite, die Ihre Kunden überzeugt, genau Sie anzurufen.
+
+Was ich anbiete:
+• Moderne, mobilfreundliche Webseite
+• Google-Sichtbarkeit (einfache SEO-Optimierung)
+• Fertigstellung in 7–14 Tagen
+• Keine versteckten Kosten
+
+Ich würde Ihnen gerne ein kostenloses Angebot ohne Verpflichtung schicken. Hätten Sie diese Woche 10 Minuten für ein kurzes Gespräch?
+
+Mit freundlichen Grüßen,
+{sender_name}
+{sender_phone}
+
+---
+Wenn Sie keine weiteren Nachrichten erhalten möchten, antworten Sie mit ABMELDEN.

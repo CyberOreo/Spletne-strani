@@ -1,0 +1,23 @@
+Predmet: Vaša web stranica — prilika za modernizaciju
+
+Poštovani {greeting},
+
+pregledavajući web stranice u području {activity} naišao sam na stranicu {company_name}. Primijetio sam da je vjerojatno napravljena prije nekoliko godina i da bi joj dobro došla obnova — posebno za mobilne uređaje koje danas koristi većina klijenata.
+
+{industry_hook}
+
+Moderna web stranica donosi vam:
+• Više poziva i upita
+• Bolje rangiranje na Googleu
+• Profesionalni dojam kod novih klijenata
+
+Rado bih vam pokazao kako bi vaša nova stranica mogla izgledati — bez obveza i besplatno.
+
+Odgovara li vam kratak razgovor ovaj ili sljedeći tjedan?
+
+Srdačan pozdrav,
+{sender_name}
+{sender_phone}
+
+---
+Ako ne želite primati poruke, odgovorite s riječju ODJAVA.

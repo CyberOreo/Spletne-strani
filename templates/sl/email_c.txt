@@ -1,0 +1,16 @@
+Zadeva: Re: Spletna stran za {company_name}
+
+Pozdravljeni,
+
+pred kratkim sem vam poslal povpraševanje glede spletne strani za {company_name}. Razumem, da ste zaposleni — zato bo to kratko sporočilo.
+
+Če vas tema zanima, sem na voljo za hiter klic ali sestanek — prilagodim se vašemu urniku.
+
+Če pa projekt trenutno ni aktualen, mi samo sporočite in ne bom več nadlegoval.
+
+Lep pozdrav,
+{sender_name}
+{sender_phone}
+
+---
+Če ne želite prejemati sporočil, odgovorite z besedo ODJAVA.

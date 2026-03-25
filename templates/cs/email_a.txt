@@ -1,0 +1,24 @@
+Předmět: {company_name} — Bezplatná nabídka webových stránek
+
+Vážený/á {greeting},
+
+při hledání {activity} v {city} jsem si všiml, že {company_name} nemá webové stránky. V dnešní době většina zákazníků hledá služby nejprve online — bez viditelnosti na Google přicházíte o příležitosti každý den.
+
+{industry_hook}
+
+Specializuji se na tvorbu jednoduchých, ale účinných webových stránek pro {activity} — stránky, které přesvědčí vaše zákazníky, aby zavolali právě vám.
+
+Co nabízím:
+• Moderní, mobilní webové stránky
+• Viditelnost na Google (základní SEO optimalizace)
+• Realizace za 7–14 dní
+• Žádné skryté náklady
+
+Rád bych vám poslal bezplatnou nabídku bez závazků. Máte 10 minut tento týden na krátký hovor?
+
+S pozdravem,
+{sender_name}
+{sender_phone}
+
+---
+Pokud si nepřejete dostávat zprávy, odpovězte slovem ODHLÁSIT.

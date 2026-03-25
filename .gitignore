@@ -1,0 +1,38 @@
+# Okolje
+.env
+*.pyc
+__pycache__/
+*.pyo
+.venv/
+venv/
+env/
+
+# Baza in podatki
+data/leads.db
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Izvozi in preview strani
+exports/*.csv
+previews/*.html
+
+# Logi
+logs/*.log
+
+# Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

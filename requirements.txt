@@ -1,0 +1,23 @@
+# HTTP / scraping (async)
+aiohttp>=3.9.0
+aiofiles>=23.2.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+playwright>=1.40.0
+
+# Config / CLI
+python-dotenv>=1.0.0
+click>=8.1.7
+rich>=13.7.0
+
+# Scheduling
+schedule>=1.2.1
+python-dateutil>=2.8.2
+
+# Domain detection
+tldextract>=5.1.1
+dnspython>=2.4.2
+
+# Proxy (SOCKS support)
+requests[socks]>=2.31.0
+aiohttp-socks>=0.8.3
