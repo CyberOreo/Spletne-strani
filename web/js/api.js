@@ -25,6 +25,7 @@ const API = (() => {
   return {
     setBaseURL(url) { localStorage.setItem('apiURL', url.replace(/\/$/, '')); },
     getBaseURL: baseURL,
+    get: (path) => request('GET', path),
 
     // Stats
     fetchStats:          ()           => request('GET',    '/api/stats'),
@@ -81,7 +82,9 @@ const WS = (() => {
 
   return {
     connect,
-    on(handler) { handlers.push(handler); },
-    send(msg) { if (socket && socket.readyState === 1) socket.send(JSON.stringify(msg)); },
+    on(handler)  { if (!handlers.includes(handler)) handlers.push(handler); },
+    off(handler) { const i = handlers.indexOf(handler); if (i !== -1) handlers.splice(i, 1); },
+    connected()  { return socket && socket.readyState === 1; },
+    send(msg)    { if (socket && socket.readyState === 1) socket.send(JSON.stringify(msg)); },
   };
 })();

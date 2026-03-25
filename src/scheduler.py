@@ -14,11 +14,38 @@ from src.config import (
     OVERNIGHT_SCRAPE_TIME, OVERNIGHT_SEND_TIME,
 )
 from src.database import init_db, gdpr_cleanup
+from src import events
 
 logger = logging.getLogger(__name__)
 
 _running = False
 _scheduler_thread: threading.Thread | None = None
+
+STAGE_LABELS = {
+    "start":     "Zaganjam...",
+    "scraping":  "Scraping leadov",
+    "qualify":   "Kvalifikacija",
+    "generate":  "Generacija emailov",
+    "replies":   "Preverjam odgovore",
+    "followup":  "Follow-up emaili",
+    "sending":   "Pošiljanje emailov",
+    "cleanup":   "GDPR čiščenje",
+    "complete":  "Končano",
+}
+
+def _set_stage(stage: str, msg: str = "", pct: int = None) -> None:
+    label = STAGE_LABELS.get(stage, stage)
+    events.update_pipeline({"stage": stage, "stage_label": label, "message": msg,
+                             "progress_pct": pct if pct is not None else _stage_pct(stage)})
+    events.add_event(f"{label}{': ' + msg if msg else ''}", "info")
+    logger.info("[%s] %s", stage.upper(), msg or label)
+
+def _stage_pct(stage: str) -> int:
+    order = list(STAGE_LABELS.keys())
+    try:
+        return round(order.index(stage) / (len(order) - 1) * 100)
+    except ValueError:
+        return 0
 
 
 # ─── Celoten dnevni pipeline ──────────────────────────────────────────────────
@@ -64,84 +91,106 @@ async def run_daily_pipeline(
         "gdpr_deleted": 0,
     }
 
+    events.update_pipeline({"status": "running", "started_at": datetime.now().isoformat(),
+                             "scraped": 0, "qualified": 0, "emails_generated": 0,
+                             "emails_sent": 0, "errors": 0})
+    events.add_event("Pipeline zagnan", "success")
     logger.info("=" * 60)
     logger.info("DNEVNI PIPELINE STARTED: %s", datetime.now().strftime("%Y-%m-%d %H:%M"))
     logger.info("=" * 60)
 
     # ── 1. SCRAPING ────────────────────────────────────────────────────────────
     if not skip_scrape:
-        logger.info("FAZA 1: Scraping...")
+        _set_stage("scraping", "", 5)
         try:
             leads_raw = await _scrape_bulk(DAILY_BULK_CONFIG, concurrency=SCRAPE_CONCURRENCY)
             for lead in leads_raw:
                 if insert_lead(lead):
                     stats["scraped"] += 1
-            logger.info("Scraping: %d novih leadov", stats["scraped"])
+                    if stats["scraped"] % 100 == 0:
+                        events.update_pipeline({"scraped": stats["scraped"]})
+                        events.add_event(f"Scrapano {stats['scraped']} leadov...", "info")
+            events.update_pipeline({"scraped": stats["scraped"]})
+            events.add_event(f"Scraping končan: {stats['scraped']} novih leadov", "success")
         except Exception as exc:
             logger.error("FAZA 1 napaka (scraping) — nadaljujem: %s", exc, exc_info=True)
-            stats["errors"] = stats.get("errors", [])
-            stats["errors"].append(f"scraping: {exc}")
+            events.add_event(f"Scraping napaka: {exc}", "error")
+            events.update_pipeline({"errors": events.get_state().get("errors", 0) + 1})
 
     # ── 2. KVALIFIKACIJA ───────────────────────────────────────────────────────
-    logger.info("FAZA 2: Kvalifikacija...")
+    _set_stage("qualify", "", 30)
     try:
         q_stats = qualify_all(min_score=3)
         stats["qualified"] = q_stats.get("qualified", 0)
         stats["disqualified"] = q_stats.get("disqualified", 0)
+        events.update_pipeline({"qualified": stats["qualified"]})
+        events.add_event(f"Kvalificirano: {stats['qualified']} leadov ({stats['disqualified']} izločenih)", "success")
     except Exception as exc:
         logger.error("FAZA 2 napaka (kvalifikacija) — nadaljujem: %s", exc, exc_info=True)
+        events.add_event(f"Kvalifikacija napaka: {exc}", "error")
 
     # ── 3. GENERACIJA EMAILOV ──────────────────────────────────────────────────
-    logger.info("FAZA 3: Generacija emailov...")
+    _set_stage("generate", "", 45)
     try:
         eg_stats = generate_all_emails()
         stats["emails_generated"] = eg_stats.get("generated", 0)
+        events.update_pipeline({"emails_generated": stats["emails_generated"]})
+        events.add_event(f"Emaili generirani: {stats['emails_generated']}", "success")
     except Exception as exc:
         logger.error("FAZA 3 napaka (generacija) — nadaljujem: %s", exc, exc_info=True)
+        events.add_event(f"Generacija napaka: {exc}", "error")
 
     # ── 4. PREVERJANJE ODGOVOROV (IMAP) ───────────────────────────────────────
-    logger.info("FAZA 4: Preverjanje odgovorov...")
+    _set_stage("replies", "", 55)
     try:
         reply_stats = check_replies()
         stats["replies_detected"] = reply_stats.get("replied", 0)
-        if reply_stats.get("replied", 0) > 0:
+        if stats["replies_detected"] > 0:
+            events.add_event(f"Novih odgovorov: {stats['replies_detected']}", "success")
             await _generate_previews_for_replies()
     except Exception as exc:
         logger.warning("FAZA 4 napaka (IMAP) — nadaljujem: %s", exc)
+        events.add_event("IMAP ni konfiguriran — preskakujem", "warning")
 
     # ── 5. FOLLOW-UP ──────────────────────────────────────────────────────────
-    logger.info("FAZA 5: Follow-up...")
+    _set_stage("followup", "", 65)
     try:
         fu_stats = generate_followups(followup_days=5)
         stats["followups_generated"] = fu_stats.get("generated", 0)
+        if stats["followups_generated"] > 0:
+            events.add_event(f"Follow-up emaili: {stats['followups_generated']}", "success")
     except Exception as exc:
         logger.error("FAZA 5 napaka (follow-up) — nadaljujem: %s", exc, exc_info=True)
+        events.add_event(f"Follow-up napaka: {exc}", "error")
 
     # ── 6. POŠILJANJE ─────────────────────────────────────────────────────────
     if not skip_send:
-        logger.info("FAZA 6: Pošiljanje %d emailov...", daily_limit)
+        _set_stage("sending", f"Pošiljam do {daily_limit} emailov...", 75)
         try:
             workers = min(len(__import__('src.config', fromlist=['SMTP_ACCOUNTS']).SMTP_ACCOUNTS), 5) or 1
-            send_stats = send_batch_threaded(
-                daily_limit=daily_limit,
-                dry_run=dry_run,
-                workers=workers,
-            )
+            send_stats = send_batch_threaded(daily_limit=daily_limit, dry_run=dry_run, workers=workers)
             stats["emails_sent"] = send_stats.get("sent", 0)
+            events.update_pipeline({"emails_sent": stats["emails_sent"]})
+            events.add_event(f"Poslano: {stats['emails_sent']} emailov", "success")
         except Exception as exc:
             logger.error("FAZA 6 napaka (pošiljanje) — nadaljujem: %s", exc, exc_info=True)
+            events.add_event(f"Pošiljanje napaka: {exc}", "error")
 
     # ── 7. GDPR ČIŠČENJE ──────────────────────────────────────────────────────
-    logger.info("FAZA 7: GDPR čiščenje...")
+    _set_stage("cleanup", "", 95)
     try:
         stats["gdpr_deleted"] = gdpr_cleanup(months=12)
     except Exception as exc:
         logger.warning("FAZA 7 napaka (GDPR) — nadaljujem: %s", exc)
 
     # ── 8. POROČILO ───────────────────────────────────────────────────────────
+    _set_stage("complete", "Generiram poročilo...", 98)
     logger.info("FAZA 8: Poročilo...")
-    print_report()
-    export_csv()
+    try:
+        print_report()
+        export_csv()
+    except Exception as exc:
+        logger.warning("FAZA 8 napaka (poročilo) — nadaljujem: %s", exc)
 
     logger.info("=" * 60)
     logger.info(
@@ -149,6 +198,18 @@ async def run_daily_pipeline(
         stats["scraped"], stats["emails_sent"],
     )
     logger.info("=" * 60)
+
+    events.update_pipeline({
+        "status": "done",
+        "stage": "complete",
+        "stage_label": "Končano",
+        "message": f"Pipeline končan ✓ — Scrapano: {stats['scraped']}, Poslano: {stats['emails_sent']}",
+        "progress_pct": 100,
+    })
+    events.add_event(
+        f"Pipeline končan ✓  Scraped: {stats['scraped']} · Qualified: {stats['qualified']} · Sent: {stats['emails_sent']}",
+        "success",
+    )
 
     return stats
 

@@ -18,6 +18,7 @@ from src.database import (
     update_lead_status, gdpr_cleanup, get_pending_emails, get_conn,
 )
 from src.config import DAILY_EMAIL_LIMIT
+from src import events as _events
 
 logger = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent / "web"
@@ -55,7 +56,19 @@ async def lifespan(app: FastAPI):
     init_db()
     _add_country_column()
     _ensure_icons()
+    task = asyncio.create_task(_ws_heartbeat())
     yield
+    task.cancel()
+
+
+async def _ws_heartbeat() -> None:
+    """Broadcast pipeline state every 3 seconds so dashboard stays live."""
+    while True:
+        await asyncio.sleep(3)
+        if _ws_clients:
+            state = _events.get_state()
+            activity = _events.get_activity(20)
+            await _broadcast({"type": "heartbeat", "pipeline": state, "activity": activity})
 
 def _add_country_column() -> None:
     """Doda country stolpec, če še ne obstaja."""
@@ -197,7 +210,17 @@ async def api_run_daily(background_tasks: BackgroundTasks, dry_run: bool = False
 
 @app.get("/api/run/status", summary="Status pipeline-a")
 async def api_pipeline_status():
+    """Vrne kombiniran status: events bus + legacy _pipeline_status."""
+    ev = _events.get_state()
+    # Merge: events bus has richer data; fall back to local dict if idle
+    if ev.get("status") not in (None, "idle") or _pipeline_status["status"] == "idle":
+        return ev
     return _pipeline_status
+
+
+@app.get("/api/activity", summary="Real-time activity log")
+async def api_activity(limit: int = Query(50, le=150)):
+    return {"activity": _events.get_activity(limit), "pipeline": _events.get_state()}
 
 
 @app.post("/api/scrape", summary="Sproži scraping")
@@ -312,15 +335,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
 async def _run_pipeline_bg(dry_run: bool) -> None:
     global _pipeline_status
+    _events.reset_pipeline()
+    _events.update_pipeline({"status": "running", "stage": "start", "stage_label": "Zaganjam...", "started_at": __import__('datetime').datetime.now().isoformat()})
+    _events.add_event("Pipeline zagnan" + (" (dry run)" if dry_run else ""), "info")
     try:
         from src.scheduler import run_daily_pipeline
-        _pipeline_status["stage"] = "scraping"
-        await _broadcast(_pipeline_status)
-
         stats = await run_daily_pipeline(dry_run=dry_run)
         _pipeline_status.update({
-            "status": "done",
-            "stage": "complete",
+            "status": "done", "stage": "complete",
             "scraped": stats.get("scraped", 0),
             "qualified": stats.get("qualified", 0),
             "emails_generated": stats.get("emails_generated", 0),
@@ -329,7 +351,10 @@ async def _run_pipeline_bg(dry_run: bool) -> None:
         })
     except Exception as exc:
         _pipeline_status.update({"status": "error", "message": str(exc)})
-    await _broadcast(_pipeline_status)
+        _events.update_pipeline({"status": "error", "message": str(exc)})
+        _events.add_event(f"Pipeline napaka: {exc}", "error")
+    state = _events.get_state()
+    await _broadcast({"type": "pipeline_done", "pipeline": state})
 
 
 async def _scrape_bg(country: str, industry: str, limit: int) -> None:

@@ -22,11 +22,19 @@ const App = (() => {
     return { view: hash, id: null };
   }
 
+  let _currentView = null;
+
   async function navigate() {
     const { view, id } = getRoute();
     const app = document.getElementById('app');
     const title = document.getElementById('headerTitle');
     const backBtn = document.getElementById('backBtn');
+
+    // Destroy previous view if it has a destroy() method
+    if (_currentView && _currentView !== view) {
+      if (typeof Dashboard.destroy === 'function' && _currentView === 'dashboard') Dashboard.destroy();
+    }
+    _currentView = view;
 
     // Update nav
     document.querySelectorAll('.nav-item').forEach((el) => {
@@ -84,8 +92,13 @@ const App = (() => {
     window.addEventListener('hashchange', navigate);
     WS.connect();
     WS.on((msg) => {
-      if (msg.status === 'done') toast('Pipeline končan ✓', 'success');
-      if (msg.status === 'error') toast('Napaka: ' + msg.message, 'error');
+      // Global toast for pipeline completion (when not on dashboard)
+      const onDash = (_currentView === 'dashboard' || !_currentView);
+      if (msg.type === 'pipeline_done' && !onDash) {
+        const s = msg.pipeline?.status;
+        if (s === 'done') toast('Pipeline končan ✓', 'success');
+        if (s === 'error') toast('Napaka: ' + msg.pipeline?.message, 'error');
+      }
     });
     navigate();
     checkAPI();
