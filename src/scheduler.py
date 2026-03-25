@@ -71,53 +71,72 @@ async def run_daily_pipeline(
     # ── 1. SCRAPING ────────────────────────────────────────────────────────────
     if not skip_scrape:
         logger.info("FAZA 1: Scraping...")
-        leads_raw = await _scrape_bulk(DAILY_BULK_CONFIG, concurrency=SCRAPE_CONCURRENCY)
-
-        for lead in leads_raw:
-            if insert_lead(lead):
-                stats["scraped"] += 1
-
-        logger.info("Scraping: %d novih leadov", stats["scraped"])
+        try:
+            leads_raw = await _scrape_bulk(DAILY_BULK_CONFIG, concurrency=SCRAPE_CONCURRENCY)
+            for lead in leads_raw:
+                if insert_lead(lead):
+                    stats["scraped"] += 1
+            logger.info("Scraping: %d novih leadov", stats["scraped"])
+        except Exception as exc:
+            logger.error("FAZA 1 napaka (scraping) — nadaljujem: %s", exc, exc_info=True)
+            stats["errors"] = stats.get("errors", [])
+            stats["errors"].append(f"scraping: {exc}")
 
     # ── 2. KVALIFIKACIJA ───────────────────────────────────────────────────────
     logger.info("FAZA 2: Kvalifikacija...")
-    q_stats = qualify_all(min_score=3)
-    stats["qualified"] = q_stats.get("qualified", 0)
-    stats["disqualified"] = q_stats.get("disqualified", 0)
+    try:
+        q_stats = qualify_all(min_score=3)
+        stats["qualified"] = q_stats.get("qualified", 0)
+        stats["disqualified"] = q_stats.get("disqualified", 0)
+    except Exception as exc:
+        logger.error("FAZA 2 napaka (kvalifikacija) — nadaljujem: %s", exc, exc_info=True)
 
     # ── 3. GENERACIJA EMAILOV ──────────────────────────────────────────────────
     logger.info("FAZA 3: Generacija emailov...")
-    eg_stats = generate_all_emails()
-    stats["emails_generated"] = eg_stats.get("generated", 0)
+    try:
+        eg_stats = generate_all_emails()
+        stats["emails_generated"] = eg_stats.get("generated", 0)
+    except Exception as exc:
+        logger.error("FAZA 3 napaka (generacija) — nadaljujem: %s", exc, exc_info=True)
 
     # ── 4. PREVERJANJE ODGOVOROV (IMAP) ───────────────────────────────────────
     logger.info("FAZA 4: Preverjanje odgovorov...")
-    reply_stats = check_replies()
-    stats["replies_detected"] = reply_stats.get("replied", 0)
-
-    # Za vsak odgovor generira preview
-    if reply_stats.get("replied", 0) > 0:
-        await _generate_previews_for_replies()
+    try:
+        reply_stats = check_replies()
+        stats["replies_detected"] = reply_stats.get("replied", 0)
+        if reply_stats.get("replied", 0) > 0:
+            await _generate_previews_for_replies()
+    except Exception as exc:
+        logger.warning("FAZA 4 napaka (IMAP) — nadaljujem: %s", exc)
 
     # ── 5. FOLLOW-UP ──────────────────────────────────────────────────────────
     logger.info("FAZA 5: Follow-up...")
-    fu_stats = generate_followups(followup_days=5)
-    stats["followups_generated"] = fu_stats.get("generated", 0)
+    try:
+        fu_stats = generate_followups(followup_days=5)
+        stats["followups_generated"] = fu_stats.get("generated", 0)
+    except Exception as exc:
+        logger.error("FAZA 5 napaka (follow-up) — nadaljujem: %s", exc, exc_info=True)
 
     # ── 6. POŠILJANJE ─────────────────────────────────────────────────────────
     if not skip_send:
         logger.info("FAZA 6: Pošiljanje %d emailov...", daily_limit)
-        workers = min(len(__import__('src.config', fromlist=['SMTP_ACCOUNTS']).SMTP_ACCOUNTS), 5) or 1
-        send_stats = send_batch_threaded(
-            daily_limit=daily_limit,
-            dry_run=dry_run,
-            workers=workers,
-        )
-        stats["emails_sent"] = send_stats.get("sent", 0)
+        try:
+            workers = min(len(__import__('src.config', fromlist=['SMTP_ACCOUNTS']).SMTP_ACCOUNTS), 5) or 1
+            send_stats = send_batch_threaded(
+                daily_limit=daily_limit,
+                dry_run=dry_run,
+                workers=workers,
+            )
+            stats["emails_sent"] = send_stats.get("sent", 0)
+        except Exception as exc:
+            logger.error("FAZA 6 napaka (pošiljanje) — nadaljujem: %s", exc, exc_info=True)
 
     # ── 7. GDPR ČIŠČENJE ──────────────────────────────────────────────────────
     logger.info("FAZA 7: GDPR čiščenje...")
-    stats["gdpr_deleted"] = gdpr_cleanup(months=12)
+    try:
+        stats["gdpr_deleted"] = gdpr_cleanup(months=12)
+    except Exception as exc:
+        logger.warning("FAZA 7 napaka (GDPR) — nadaljujem: %s", exc)
 
     # ── 8. POROČILO ───────────────────────────────────────────────────────────
     logger.info("FAZA 8: Poročilo...")
@@ -294,22 +313,46 @@ def start_overnight_scheduler(daily_limit: int = DAILY_EMAIL_LIMIT, dry_run: boo
 
     _running = True
 
+    def _run_with_retry(name: str, coro_fn, max_retries: int = 3, retry_delay: int = 300):
+        """Zažene async funkcijo z avtomatskim ponovnim zagonom ob napaki."""
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info("OVERNIGHT [%s] — zagon (poskus %d/%d)", name, attempt, max_retries)
+                asyncio.run(coro_fn())
+                logger.info("OVERNIGHT [%s] — uspešno končano", name)
+                return
+            except Exception as exc:
+                logger.error(
+                    "OVERNIGHT [%s] napaka (poskus %d/%d): %s",
+                    name, attempt, max_retries, exc, exc_info=True,
+                )
+                if attempt < max_retries:
+                    logger.info("OVERNIGHT [%s] — čakam %ds pred ponovnim zagonom...", name, retry_delay)
+                    time.sleep(retry_delay)
+                else:
+                    logger.critical(
+                        "OVERNIGHT [%s] — vse %d ponovitve neuspešne. "
+                        "Preveri logs/ mapo zjutraj.", name, max_retries,
+                    )
+
     def scrape_job():
         logger.info("OVERNIGHT: Začenjam nočni scraping ob %s", datetime.now().strftime("%H:%M"))
-        asyncio.run(run_daily_pipeline(
-            daily_limit=daily_limit,
-            dry_run=dry_run,
-            skip_send=True,   # ponoči samo scrapers + emaili, brez pošiljanja
-        ))
+        _run_with_retry(
+            "scraping",
+            lambda: run_daily_pipeline(daily_limit=daily_limit, dry_run=dry_run, skip_send=True),
+            max_retries=3,
+            retry_delay=300,  # 5 minut med ponovnimi poskusi
+        )
         logger.info("OVERNIGHT: Nočni scraping končan. Emaili bodo poslani ob %s", OVERNIGHT_SEND_TIME)
 
     def send_job():
         logger.info("OVERNIGHT: Začenjam jutranje pošiljanje ob %s", datetime.now().strftime("%H:%M"))
-        asyncio.run(run_daily_pipeline(
-            daily_limit=daily_limit,
-            dry_run=dry_run,
-            skip_scrape=True,  # zjutraj samo pošiljanje
-        ))
+        _run_with_retry(
+            "posiljanje",
+            lambda: run_daily_pipeline(daily_limit=daily_limit, dry_run=dry_run, skip_scrape=True),
+            max_retries=3,
+            retry_delay=120,  # 2 minuti med ponovnimi poskusi
+        )
         logger.info("OVERNIGHT: Pošiljanje končano.")
 
     def loop():
