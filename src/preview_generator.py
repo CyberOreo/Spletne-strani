@@ -36,12 +36,12 @@ def generate_preview(lead_id: str) -> str | None:
 
 def _render_preview_html(lead: dict) -> str:
     """Generira HTML za preview stran podjetja."""
-    company = lead.get("company_name", "Vaše podjetje")
-    activity = lead.get("activity", "")
-    address = lead.get("address", "")
-    phone = lead.get("phone", "")
-    email = lead.get("email", "")
-    city = lead.get("city", "")
+    company = lead.get("company_name") or "Vaše podjetje"
+    activity = lead.get("activity") or ""
+    address = lead.get("address") or ""
+    phone = lead.get("phone") or ""
+    email = lead.get("email") or ""
+    city = lead.get("city") or ""
     lang = _get_language(lead)
 
     # Barve glede na dejavnost
