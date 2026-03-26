@@ -1,5 +1,5 @@
 // Service Worker — LeadGen EU PWA
-const CACHE = 'leadgen-v4';
+const CACHE = 'leadgen-v5';
 const SHELL = [
   '/',
   '/web/css/app.css',

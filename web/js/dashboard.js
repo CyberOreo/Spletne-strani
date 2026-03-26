@@ -295,10 +295,7 @@ const Dashboard = (() => {
         const kpiEl = document.querySelector('.kpi-grid');
         if (kpiEl) kpiEl.outerHTML = renderKPI(s);
         const st = document.querySelector('.status-table');
-        const sw = document.querySelector('.section-header');
-        if (st && sw) {
-          sw.outerHTML = renderStatusTable(s?.by_status);
-        }
+        if (st) st.outerHTML = renderStatusTable(s?.by_status);
       } catch (_) {}
     }, 30000);
   }
