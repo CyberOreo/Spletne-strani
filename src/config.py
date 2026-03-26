@@ -35,9 +35,10 @@ IMAP_USER = os.getenv("IMAP_USER", "")
 IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "")
 
 # ─── Limiti ───────────────────────────────────────────────────────────────────
-DAILY_EMAIL_LIMIT = int(os.getenv("DAILY_EMAIL_LIMIT", "3000"))
-MIN_DELAY_SECONDS = int(os.getenv("MIN_DELAY_SECONDS", "10"))
-MAX_DELAY_SECONDS = int(os.getenv("MAX_DELAY_SECONDS", "30"))
+DAILY_EMAIL_LIMIT  = int(os.getenv("DAILY_EMAIL_LIMIT",  "3000"))
+DAILY_SCRAPE_LIMIT = int(os.getenv("DAILY_SCRAPE_LIMIT", "3000"))
+MIN_DELAY_SECONDS  = int(os.getenv("MIN_DELAY_SECONDS",  "10"))
+MAX_DELAY_SECONDS  = int(os.getenv("MAX_DELAY_SECONDS",  "30"))
 
 # ─── Proxy rotacija ───────────────────────────────────────────────────────────
 def _load_proxies() -> list[str]:
@@ -337,7 +338,8 @@ REGIJE_PO_DRZAVAH: dict[str, list[str]] = {
 }
 
 # ─── Dnevni bulk config — OpenStreetMap Overpass (brezplačen, dela brez ključev) ──
-# Skupaj: ~3100 leadov/dan iz 10 EU držav
+# Skupaj: 3100 leadov/dan iz 10 EU držav
+# Vsak vnos: source="overpass", country, industry (prazen = vse kategorije), limit
 DAILY_BULK_CONFIG: list[dict] = [
     # Slovenija — 300
     {"source": "overpass", "country": "si", "industry": "plumber",     "limit": 100},
@@ -351,14 +353,16 @@ DAILY_BULK_CONFIG: list[dict] = [
     {"source": "overpass", "country": "at", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "at", "industry": "electrician", "limit": 100},
     {"source": "overpass", "country": "at", "industry": "",            "limit": 100},
-    # Nemčija — 400
+    # Nemčija — 500 (največji trg)
     {"source": "overpass", "country": "de", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "de", "industry": "electrician", "limit": 100},
     {"source": "overpass", "country": "de", "industry": "hair_salon",  "limit": 100},
+    {"source": "overpass", "country": "de", "industry": "restaurant",  "limit": 100},
     {"source": "overpass", "country": "de", "industry": "",            "limit": 100},
-    # Italija — 300
+    # Italija — 400
     {"source": "overpass", "country": "it", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "it", "industry": "restaurant",  "limit": 100},
+    {"source": "overpass", "country": "it", "industry": "hair_salon",  "limit": 100},
     {"source": "overpass", "country": "it", "industry": "",            "limit": 100},
     # Češka — 200
     {"source": "overpass", "country": "cz", "industry": "plumber",     "limit": 100},
@@ -369,9 +373,10 @@ DAILY_BULK_CONFIG: list[dict] = [
     # Madžarska — 200
     {"source": "overpass", "country": "hu", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "hu", "industry": "",            "limit": 100},
-    # Poljska — 300
+    # Poljska — 400 (velik trg)
     {"source": "overpass", "country": "pl", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "pl", "industry": "electrician", "limit": 100},
+    {"source": "overpass", "country": "pl", "industry": "restaurant",  "limit": 100},
     {"source": "overpass", "country": "pl", "industry": "",            "limit": 100},
     # Romunija — 300
     {"source": "overpass", "country": "ro", "industry": "plumber",     "limit": 100},
