@@ -21,18 +21,33 @@ from src.scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
-# Samo preverjena, delujoča Overpass endpointa
+# 4 Overpass mirrora — rotiramo med njimi da se izognemo rate limitu
 OVERPASS_MIRRORS = [
     "https://overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://z.overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
+# Per-mirror 429 cooldown — ko dobimo 429, mirrorja ne uporabimo X sekund
+_mirror_cooldown: dict[str, float] = {}
 _mirror_index = 0
 
 def _next_mirror() -> str:
+    """Vrne naslednji mirror ki ni v cooldownu. Skipne blockirane."""
+    import time
     global _mirror_index
-    url = OVERPASS_MIRRORS[_mirror_index % len(OVERPASS_MIRRORS)]
-    _mirror_index += 1
-    return url
+    now = time.monotonic()
+    for _ in range(len(OVERPASS_MIRRORS)):
+        url = OVERPASS_MIRRORS[_mirror_index % len(OVERPASS_MIRRORS)]
+        _mirror_index += 1
+        if _mirror_cooldown.get(url, 0) <= now:
+            return url
+    # Vsi v cooldownu — počakaj na najkrajšega
+    soonest = min(OVERPASS_MIRRORS, key=lambda u: _mirror_cooldown.get(u, 0))
+    wait = max(0, _mirror_cooldown.get(soonest, 0) - now)
+    if wait > 0:
+        import time as _t; _t.sleep(wait)
+    return soonest
 
 # Preslikava dvočrkovna ISO koda → ISO 3166-1 alfa-2 (kot jo pozna OSM)
 COUNTRY_ISO: dict[str, str] = {
@@ -123,7 +138,7 @@ def _build_city_query(city: str, osm_tags: list[tuple[str, str]], limit: int) ->
     """Sestavi Overpass QL poizvedbo za posamezno mesto."""
     filters = _build_tag_filters(osm_tags, area_var=".city")
     return (
-        f'[out:json][timeout:90];\n'
+        f'[out:json][timeout:45];\n'
         f'area["name"="{city}"]->.city;\n'
         f'(\n'
         f'{filters}\n'
@@ -300,8 +315,8 @@ class OverpassScraper(BaseScraper):
     3. Med poizvedbami počaka 2–3 sekunde, da ne preobremeni API-ja.
     """
 
-    OVERPASS_TIMEOUT = 120
-    BETWEEN_REQUESTS_DELAY = 6.0   # 6s med zahtevki — Overpass dovoli ~10 zahtevkov/min
+    OVERPASS_TIMEOUT = 60   # krajši timeout — hitrejši fallback
+    BETWEEN_REQUESTS_DELAY = 2.0   # 2s med zahtevki (rotiramo 4 mirrore)
 
     def __init__(self) -> None:
         super().__init__()
@@ -367,43 +382,9 @@ class OverpassScraper(BaseScraper):
             country, industry, limit,
         )
 
-        # ── 1. Poskus: celotna državna poizvedba ──────────────────────────────
-        country_query_failed = False
-        try:
-            query = _build_country_query(iso2, osm_tags, limit)
-            elements = await self._post_overpass(query)
-            if elements is not None:
-                results = self._parse_elements(elements, country, limit)
-                logger.info(
-                    "OverpassScraper: državna poizvedba vrnila %d elementov (%s)",
-                    len(results), country,
-                )
-        except asyncio.TimeoutError:
-            logger.warning(
-                "OverpassScraper: timeout pri državni poizvedbi (%s) — preklop na mesta",
-                country,
-            )
-            country_query_failed = True
-        except Exception as exc:
-            logger.warning(
-                "OverpassScraper: napaka pri državni poizvedbi (%s): %s — preklop na mesta",
-                country, exc,
-            )
-            country_query_failed = True
-
-        # ── 2. Fallback: poizvedbe po mestih ──────────────────────────────────
-        # Preklopi na mestne poizvedbe, če:
-        # - državna poizvedba ni uspela, ali
-        # - rezultatov je premalo (manj kot 1/3 želenega limita ali manj kot 50)
-        fallback_threshold = max(50, limit // 3)
-        if country_query_failed or len(results) < fallback_threshold:
-            logger.info(
-                "OverpassScraper: preklop na mestne poizvedbe (%s) — dosedaj %d rezultatov",
-                country, len(results),
-            )
-            city_results = await self._scrape_by_cities(country, osm_tags, limit)
-            if len(city_results) > len(results):
-                results = city_results
+        # Direktno na mestne poizvedbe — državne queries timeoutajo na velikih državah
+        # in povzročijo rate-limit na vseh mirrorjih hkrati.
+        results = await self._scrape_by_cities(country, osm_tags, limit)
 
         logger.info(
             "OverpassScraper: končano — %d leadov (država=%s, industrija='%s')",
@@ -481,8 +462,10 @@ class OverpassScraper(BaseScraper):
 
         encoded_query = quote_plus(query)
 
-        # Poskusi do 3 mirror serverje
-        for attempt in range(len(OVERPASS_MIRRORS)):
+        import time as _time
+
+        # Poskusi vse mirrore — ob 429 postavi mirror v 90s cooldown in takoj preklopi
+        for attempt in range(len(OVERPASS_MIRRORS) * 2):
             mirror = _next_mirror()
             try:
                 async with self._overpass_session.post(
@@ -491,14 +474,19 @@ class OverpassScraper(BaseScraper):
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 ) as resp:
                     if resp.status == 429:
-                        wait = 60  # vedno čakamo 60s pri rate limitu
-                        logger.warning("OverpassScraper: rate limit (429) — čakam %ds", wait)
-                        await asyncio.sleep(wait)
-                        continue  # Poskusi naslednji mirror
+                        # Ne čakaj 60s — postavi mirror v cooldown in takoj preklopi
+                        _mirror_cooldown[mirror] = _time.monotonic() + 90
+                        logger.warning(
+                            "OverpassScraper: rate limit (429) @ %s — cooldown 90s, preklop na drug mirror",
+                            mirror.split("/")[2],
+                        )
+                        continue
 
-                    if resp.status == 504:
-                        logger.warning("OverpassScraper: gateway timeout (504)")
-                        raise asyncio.TimeoutError("Overpass gateway timeout (504)")
+                    if resp.status in (502, 503, 504):
+                        # Gateway napaka — kratki cooldown in preklop
+                        _mirror_cooldown[mirror] = _time.monotonic() + 30
+                        logger.warning("OverpassScraper: HTTP %d @ %s — preklop", resp.status, mirror.split("/")[2])
+                        continue
 
                     if resp.status >= 400:
                         body = await resp.text()
@@ -507,20 +495,22 @@ class OverpassScraper(BaseScraper):
 
                     data: dict[str, Any] = await resp.json(content_type=None)
                     elements: list[dict] = data.get("elements", [])
-                    logger.debug("OverpassScraper: %s vrnil %d elementov", mirror, len(elements))
+                    logger.debug("OverpassScraper: %s vrnil %d elementov", mirror.split("/")[2], len(elements))
                     return elements
 
             except asyncio.TimeoutError:
-                raise
+                _mirror_cooldown[mirror] = _time.monotonic() + 30
+                logger.warning("OverpassScraper: timeout @ %s — preklop", mirror.split("/")[2])
+                continue
             except aiohttp.ClientError as exc:
-                logger.warning("OverpassScraper: omrežna napaka @ %s: %s", mirror, exc)
-                await asyncio.sleep(5)
+                logger.warning("OverpassScraper: omrežna napaka @ %s: %s", mirror.split("/")[2], exc)
+                await asyncio.sleep(3)
                 continue
             except Exception as exc:
-                logger.warning("OverpassScraper: napaka @ %s: %s", mirror, exc)
+                logger.warning("OverpassScraper: napaka @ %s: %s", mirror.split("/")[2], exc)
                 continue
 
-        logger.warning("OverpassScraper: vsi mirror serverji so odpovedali")
+        logger.warning("OverpassScraper: vsi mirror serverji so odpovedali za to poizvedbo")
         return None
 
     # ─── Parsiranje elementov ─────────────────────────────────────────────────
