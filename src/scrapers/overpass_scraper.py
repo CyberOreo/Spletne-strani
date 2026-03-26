@@ -21,12 +21,10 @@ from src.scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
-# Rotiramo med mirrors da se izognemo rate limitu na enem serverju
+# Samo preverjena, delujoča Overpass endpointa
 OVERPASS_MIRRORS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-    "https://overpass.openstreetmap.ru/api/interpreter",
 ]
 _mirror_index = 0
 
@@ -302,8 +300,8 @@ class OverpassScraper(BaseScraper):
     3. Med poizvedbami počaka 2–3 sekunde, da ne preobremeni API-ja.
     """
 
-    OVERPASS_TIMEOUT = 150         # sekunde za aiohttp (Overpass dovoli do 180s)
-    BETWEEN_REQUESTS_DELAY = 2.5   # sekunde med Overpass zahtevki (rate-limit varnost)
+    OVERPASS_TIMEOUT = 120
+    BETWEEN_REQUESTS_DELAY = 6.0   # 6s med zahtevki — Overpass dovoli ~10 zahtevkov/min
 
     def __init__(self) -> None:
         super().__init__()
@@ -493,7 +491,7 @@ class OverpassScraper(BaseScraper):
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 ) as resp:
                     if resp.status == 429:
-                        wait = 15 + attempt * 10
+                        wait = 60  # vedno čakamo 60s pri rate limitu
                         logger.warning("OverpassScraper: rate limit (429) — čakam %ds", wait)
                         await asyncio.sleep(wait)
                         continue  # Poskusi naslednji mirror

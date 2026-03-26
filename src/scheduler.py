@@ -210,7 +210,7 @@ async def run_daily_pipeline(
     return stats
 
 
-async def _scrape_bulk(configs: list[dict], concurrency: int = 2) -> list[dict]:
+async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> list[dict]:
     """Vzporedno scrapanje — primarno OpenStreetMap Overpass API."""
     from src.scrapers.overpass_scraper import OverpassScraper
     from src.scrapers.maps_scraper import MapsScraper
