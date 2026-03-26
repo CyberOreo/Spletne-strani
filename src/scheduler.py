@@ -73,10 +73,6 @@ async def run_daily_pipeline(
     from src.tracker import check_replies, generate_followups
     from src.reporter import print_report, export_csv
 
-    # Importi scraperjev (lazy da ne upočasnimo zagona)
-    from src.scrapers.bizi_scraper import BiziScraper
-    from src.scrapers.euro_pages_scraper import EuroPagesScraper
-    from src.scrapers.maps_scraper import MapsScraper
     from src.database import insert_lead
 
     stats = {
@@ -214,68 +210,37 @@ async def run_daily_pipeline(
     return stats
 
 
-async def _scrape_bulk(configs: list[dict], concurrency: int = 10) -> list[dict]:
-    """Vzporedno scrapanje iz vseh virov."""
-    from src.scrapers.bizi_scraper import BiziScraper
-    from src.scrapers.euro_pages_scraper import EuroPagesScraper
+async def _scrape_bulk(configs: list[dict], concurrency: int = 5) -> list[dict]:
+    """Vzporedno scrapanje — primarno OpenStreetMap Overpass API."""
+    from src.scrapers.overpass_scraper import OverpassScraper
     from src.scrapers.maps_scraper import MapsScraper
-    from src.scrapers.zlate_strani_scraper import ZlateStraniScraper
-    from src.scrapers.ajpes_scraper import AjpesScraper
-    import importlib
 
-    SCRAPER_MAP = {
-        "bizi": BiziScraper,
-        "zlate_strani": ZlateStraniScraper,
-        "ajpes": AjpesScraper,
-        "euro_pages": EuroPagesScraper,
-        "maps": MapsScraper,
-    }
-
-    COUNTRY_SCRAPERS = {
-        "de": "src.scrapers.country_scrapers.de_scraper.DeScraper",
-        "at": "src.scrapers.country_scrapers.at_scraper.AtScraper",
-        "hr": "src.scrapers.country_scrapers.hr_scraper.HrScraper",
-        "it": "src.scrapers.country_scrapers.it_scraper.ItScraper",
-        "cz": "src.scrapers.country_scrapers.cz_scraper.CzScraper",
-        "hu": "src.scrapers.country_scrapers.hu_scraper.HuScraper",
-        "pl": "src.scrapers.country_scrapers.pl_scraper.PlScraper",
-        "ro": "src.scrapers.country_scrapers.ro_scraper.RoScraper",
-    }
-
+    # Manjša concurrency za Overpass da ne preobremenimo API-ja
     semaphore = asyncio.Semaphore(concurrency)
     all_results: list[dict] = []
 
     async def scrape_one(cfg: dict) -> list[dict]:
         async with semaphore:
-            country = cfg.get("country", "si")
-            source = cfg.get("source", "")
+            country  = cfg.get("country", "si")
+            source   = cfg.get("source", "overpass")
             industry = cfg.get("industry", "")
-            limit = cfg.get("limit", 100)
+            limit    = cfg.get("limit", 100)
 
-            # Določi scraper razred
-            scraper_cls = None
-            if source and source in SCRAPER_MAP:
-                scraper_cls = SCRAPER_MAP[source]
-            elif country in COUNTRY_SCRAPERS:
-                mod_path, cls_name = COUNTRY_SCRAPERS[country].rsplit(".", 1)
-                try:
-                    mod = importlib.import_module(mod_path)
-                    scraper_cls = getattr(mod, cls_name)
-                except (ImportError, AttributeError) as e:
-                    logger.warning("Scraper za %s ni dostopen: %s", country, e)
-                    return []
-            elif country == "si":
-                scraper_cls = BiziScraper
+            if source == "maps":
+                scraper_cls = MapsScraper
             else:
-                scraper_cls = EuroPagesScraper
+                # Privzeto: Overpass (OpenStreetMap) — brezplačen, brez ključev
+                scraper_cls = OverpassScraper
 
             try:
                 async with scraper_cls() as scraper:
-                    return await scraper.scrape(
+                    results = await scraper.scrape(
                         industry=industry,
                         country=country,
                         limit=limit,
                     )
+                    logger.info("Overpass %s/%s: %d leadov", country, industry or "*", len(results))
+                    return results
             except Exception as exc:
                 logger.error("Napaka pri scraping (%s/%s): %s", country, industry, exc)
                 return []
