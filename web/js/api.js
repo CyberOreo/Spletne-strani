@@ -53,6 +53,11 @@ const API = (() => {
     unsubscribe:         (email)      => request('POST',   '/api/unsubscribe', { email }),
     cleanup:             (months)     => request('DELETE', `/api/cleanup?months=${months || 12}`),
 
+    // Settings
+    fetchSettings:       ()           => request('GET',  '/api/settings'),
+    saveSettings:        (body)       => request('POST', '/api/settings', body),
+    testSMTP:            ()           => request('POST', '/api/settings/test-smtp', {}),
+
     // Export
     exportCSV() {
       window.open((baseURL() || '') + '/api/export/csv', '_blank');

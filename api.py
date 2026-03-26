@@ -306,6 +306,142 @@ async def one_click_unsubscribe_post(email: str = Query(...)):
     return {"ok": True}
 
 
+@app.get("/api/settings", summary="Preberi SMTP nastavitve")
+async def api_get_settings():
+    """Vrne trenutne SMTP nastavitve (geslo je maskirano)."""
+    import os
+    pw = os.environ.get("SMTP_PASSWORD", "")
+    return {
+        "smtp_host":     os.environ.get("SMTP_HOST", ""),
+        "smtp_port":     os.environ.get("SMTP_PORT", "587"),
+        "smtp_user":     os.environ.get("SMTP_USER", ""),
+        "smtp_password": "••••••••" if pw else "",
+        "sender_name":   os.environ.get("SENDER_NAME", ""),
+        "reply_to":      os.environ.get("REPLY_TO", ""),
+        "daily_limit":   os.environ.get("DAILY_EMAIL_LIMIT", "3000"),
+        "send_window_start": os.environ.get("SEND_WINDOW_START", "07:00"),
+        "send_window_end":   os.environ.get("SEND_WINDOW_END", "18:00"),
+        "overnight_scrape_time": os.environ.get("OVERNIGHT_SCRAPE_TIME", "22:00"),
+        "overnight_send_time":   os.environ.get("OVERNIGHT_SEND_TIME", "08:00"),
+        "serpapi_key":   "••••••••" if os.environ.get("SERPAPI_KEY", "") else "",
+    }
+
+
+class SettingsUpdate(BaseModel):
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[str] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None   # prazno = ne menjaj
+    sender_name: Optional[str] = None
+    reply_to: Optional[str] = None
+    daily_limit: Optional[str] = None
+    send_window_start: Optional[str] = None
+    send_window_end: Optional[str] = None
+    overnight_scrape_time: Optional[str] = None
+    overnight_send_time: Optional[str] = None
+    serpapi_key: Optional[str] = None
+
+
+@app.post("/api/settings", summary="Shrani SMTP nastavitve v .env")
+async def api_save_settings(body: SettingsUpdate):
+    """Zapiše nastavitve v .env in takoj posodobi os.environ (brez restarta)."""
+    import os
+    env_path = Path(__file__).parent / ".env"
+
+    # Mapping: pydantic field -> env key
+    FIELD_MAP = {
+        "smtp_host":             "SMTP_HOST",
+        "smtp_port":             "SMTP_PORT",
+        "smtp_user":             "SMTP_USER",
+        "smtp_password":         "SMTP_PASSWORD",
+        "sender_name":           "SENDER_NAME",
+        "reply_to":              "REPLY_TO",
+        "daily_limit":           "DAILY_EMAIL_LIMIT",
+        "send_window_start":     "SEND_WINDOW_START",
+        "send_window_end":       "SEND_WINDOW_END",
+        "overnight_scrape_time": "OVERNIGHT_SCRAPE_TIME",
+        "overnight_send_time":   "OVERNIGHT_SEND_TIME",
+        "serpapi_key":           "SERPAPI_KEY",
+    }
+
+    updates: dict[str, str] = {}
+    for field, env_key in FIELD_MAP.items():
+        val = getattr(body, field, None)
+        if val is None:
+            continue
+        # Maskirano geslo — preskoči
+        if set(val) <= {"•"} and len(val) > 0:
+            continue
+        updates[env_key] = val
+
+    if not updates:
+        return {"ok": True, "updated": []}
+
+    # Preberi obstoječ .env
+    existing: dict[str, str] = {}
+    lines: list[str] = []
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and "=" in stripped:
+                k, _, v = stripped.partition("=")
+                existing[k.strip()] = v.strip()
+            lines.append(line)
+
+    # Posodobi vrednosti v vrsticah
+    updated_keys: set[str] = set()
+    new_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            k = stripped.partition("=")[0].strip()
+            if k in updates:
+                new_lines.append(f"{k}={updates[k]}")
+                updated_keys.add(k)
+                continue
+        new_lines.append(line)
+
+    # Dodaj nove ključe, ki jih še ni bilo
+    for k, v in updates.items():
+        if k not in updated_keys:
+            new_lines.append(f"{k}={v}")
+
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+    # Takoj posodobi os.environ (brez restarta)
+    for k, v in updates.items():
+        os.environ[k] = v
+
+    return {"ok": True, "updated": list(updates.keys())}
+
+
+@app.post("/api/settings/test-smtp", summary="Testiraj SMTP povezavo")
+async def api_test_smtp():
+    """Pošlje testni email na SMTP_USER naslov."""
+    import os, smtplib, ssl
+    from email.mime.text import MIMEText
+    host = os.environ.get("SMTP_HOST", "")
+    port = int(os.environ.get("SMTP_PORT", 587))
+    user = os.environ.get("SMTP_USER", "")
+    pw   = os.environ.get("SMTP_PASSWORD", "")
+    if not host or not user or not pw:
+        raise HTTPException(400, "SMTP ni nastavljen — najprej shrani nastavitve.")
+    try:
+        msg = MIMEText("LeadGen EU SMTP test — vse deluje ✓")
+        msg["Subject"] = "LeadGen EU — SMTP test"
+        msg["From"] = user
+        msg["To"] = user
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(host, port, timeout=10) as s:
+            s.ehlo()
+            s.starttls(context=ctx)
+            s.login(user, pw)
+            s.sendmail(user, user, msg.as_string())
+        return {"ok": True, "message": f"Testni email poslan na {user}"}
+    except Exception as exc:
+        raise HTTPException(400, f"SMTP napaka: {exc}")
+
+
 @app.delete("/api/cleanup", summary="GDPR brisanje starih zapisov")
 async def api_cleanup(months: int = Query(12)):
     deleted = gdpr_cleanup(months=months)

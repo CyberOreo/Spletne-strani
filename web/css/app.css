@@ -918,3 +918,17 @@ body {
   text-align: right;
   color: var(--text-muted);
 }
+
+/* ── Settings form ───────────────────────────────────────────────────────────── */
+
+.settings-row {
+  display: flex;
+  gap: 12px;
+}
+.settings-row .form-group { flex: 1; }
+.form-hint {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.5;
+}
