@@ -142,9 +142,10 @@ def should_disqualify(lead: dict) -> tuple[bool, str]:
         if kw in name:
             return True, f"Državna institucija: {kw}"
 
-    # Ni kontaktov
-    if not lead.get("email") and not lead.get("phone"):
-        return True, "Ni kontaktnih podatkov"
+    # Zahtevaj email — brez emaila ne moremo poslati cold email
+    email = str(lead.get("email") or "").strip()
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        return True, "Ni veljavnega email naslova"
 
     return False, ""
 

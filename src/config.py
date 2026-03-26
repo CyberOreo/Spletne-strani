@@ -337,49 +337,56 @@ REGIJE_PO_DRZAVAH: dict[str, list[str]] = {
            "Nitra", "Trnava", "Trenčín"],
 }
 
-# ─── Dnevni bulk config — OpenStreetMap Overpass (brezplačen, dela brez ključev) ──
-# Skupaj: 3100 leadov/dan iz 10 EU držav
-# Vsak vnos: source="overpass", country, industry (prazen = vse kategorije), limit
+# ─── Dnevni bulk config ────────────────────────────────────────────────────────
+# PRIMARNI VIR: EuroPages (europages.co.uk) — ima EMAIL podatke, pan-EU
+# BACKUP VIR: Overpass/OSM — veliko leadov a redko email → qualifier zavrže brez emaila
+#
+# Kriterij za kvalifikacijo: lead MORA imeti email + NE sme imeti spletne strani
 DAILY_BULK_CONFIG: list[dict] = [
-    # Slovenija — 300
+    # ── EuroPages — PRIMARNI VIR (email podatki) ──────────────────────────────
+    # Slovenija
+    {"source": "euro_pages", "country": "si", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "si", "industry": "electrician", "limit": 150},
+    {"source": "euro_pages", "country": "si", "industry": "hair_salon",  "limit": 100},
+    {"source": "euro_pages", "country": "si", "industry": "accounting",  "limit": 100},
+    # Hrvaška
+    {"source": "euro_pages", "country": "hr", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "hr", "industry": "electrician", "limit": 150},
+    {"source": "euro_pages", "country": "hr", "industry": "restaurant",  "limit": 100},
+    # Avstrija
+    {"source": "euro_pages", "country": "at", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "at", "industry": "electrician", "limit": 150},
+    {"source": "euro_pages", "country": "at", "industry": "hair_salon",  "limit": 100},
+    # Nemčija
+    {"source": "euro_pages", "country": "de", "industry": "plumber",     "limit": 200},
+    {"source": "euro_pages", "country": "de", "industry": "electrician", "limit": 200},
+    {"source": "euro_pages", "country": "de", "industry": "hair_salon",  "limit": 150},
+    {"source": "euro_pages", "country": "de", "industry": "accounting",  "limit": 150},
+    # Italija
+    {"source": "euro_pages", "country": "it", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "it", "industry": "electrician", "limit": 150},
+    {"source": "euro_pages", "country": "it", "industry": "restaurant",  "limit": 100},
+    # Češka
+    {"source": "euro_pages", "country": "cz", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "cz", "industry": "electrician", "limit": 100},
+    # Slovaška
+    {"source": "euro_pages", "country": "sk", "industry": "plumber",     "limit": 100},
+    {"source": "euro_pages", "country": "sk", "industry": "electrician", "limit": 100},
+    # Madžarska
+    {"source": "euro_pages", "country": "hu", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "hu", "industry": "electrician", "limit": 100},
+    # Poljska
+    {"source": "euro_pages", "country": "pl", "industry": "plumber",     "limit": 200},
+    {"source": "euro_pages", "country": "pl", "industry": "electrician", "limit": 150},
+    {"source": "euro_pages", "country": "pl", "industry": "hair_salon",  "limit": 100},
+    # Romunija
+    {"source": "euro_pages", "country": "ro", "industry": "plumber",     "limit": 150},
+    {"source": "euro_pages", "country": "ro", "industry": "electrician", "limit": 100},
+
+    # ── Overpass/OSM — BACKUP (volume, redko email → qualifier zavrže) ─────────
     {"source": "overpass", "country": "si", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "si", "industry": "electrician", "limit": 100},
-    {"source": "overpass", "country": "si", "industry": "",            "limit": 100},
-    # Hrvaška — 300
-    {"source": "overpass", "country": "hr", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "hr", "industry": "restaurant",  "limit": 100},
-    {"source": "overpass", "country": "hr", "industry": "",            "limit": 100},
-    # Avstrija — 300
-    {"source": "overpass", "country": "at", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "at", "industry": "electrician", "limit": 100},
-    {"source": "overpass", "country": "at", "industry": "",            "limit": 100},
-    # Nemčija — 500 (največji trg)
     {"source": "overpass", "country": "de", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "de", "industry": "electrician", "limit": 100},
-    {"source": "overpass", "country": "de", "industry": "hair_salon",  "limit": 100},
-    {"source": "overpass", "country": "de", "industry": "restaurant",  "limit": 100},
-    {"source": "overpass", "country": "de", "industry": "",            "limit": 100},
-    # Italija — 400
-    {"source": "overpass", "country": "it", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "it", "industry": "restaurant",  "limit": 100},
-    {"source": "overpass", "country": "it", "industry": "hair_salon",  "limit": 100},
-    {"source": "overpass", "country": "it", "industry": "",            "limit": 100},
-    # Češka — 200
-    {"source": "overpass", "country": "cz", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "cz", "industry": "",            "limit": 100},
-    # Slovaška — 200
-    {"source": "overpass", "country": "sk", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "sk", "industry": "",            "limit": 100},
-    # Madžarska — 200
-    {"source": "overpass", "country": "hu", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "hu", "industry": "",            "limit": 100},
-    # Poljska — 400 (velik trg)
+    {"source": "overpass", "country": "at", "industry": "plumber",     "limit": 100},
     {"source": "overpass", "country": "pl", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "pl", "industry": "electrician", "limit": 100},
-    {"source": "overpass", "country": "pl", "industry": "restaurant",  "limit": 100},
-    {"source": "overpass", "country": "pl", "industry": "",            "limit": 100},
-    # Romunija — 300
-    {"source": "overpass", "country": "ro", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "ro", "industry": "restaurant",  "limit": 100},
-    {"source": "overpass", "country": "ro", "industry": "",            "limit": 100},
+    {"source": "overpass", "country": "it", "industry": "restaurant",  "limit": 100},
 ]

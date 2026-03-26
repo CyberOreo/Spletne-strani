@@ -225,7 +225,13 @@ async def _scrape_bulk(configs: list[dict], concurrency: int = 4) -> int:
         industry = cfg.get("industry", "")
         limit    = cfg.get("limit", 100)
 
-        scraper_cls = MapsScraper if source == "maps" else OverpassScraper
+        if source == "maps":
+            scraper_cls = MapsScraper
+        elif source == "euro_pages":
+            from src.scrapers.euro_pages_scraper import EuroPagesScraper
+            scraper_cls = EuroPagesScraper
+        else:
+            scraper_cls = OverpassScraper
 
         try:
             async with semaphore:
