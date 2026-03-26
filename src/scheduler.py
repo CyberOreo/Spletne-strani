@@ -203,59 +203,62 @@ async def run_daily_pipeline(
     return stats
 
 
-async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> int:
-    """Zaporedno scrapanje z real-time counter posodobitvami.
+async def _scrape_bulk(configs: list[dict], concurrency: int = 4) -> int:
+    """Vzporedno scrapanje z real-time counter posodobitvami.
+    concurrency=4 → en request na vsak Overpass mirror hkrati.
     Vrne skupno število novo vstavljenih leadov."""
     from src.scrapers.overpass_scraper import OverpassScraper
     from src.scrapers.maps_scraper import MapsScraper
     from src.database import insert_lead
 
     semaphore = asyncio.Semaphore(concurrency)
-    total_scraped = 0
     total_configs = len(configs)
+    completed = 0
+    total_scraped = 0
+    counter_lock = asyncio.Lock()
 
-    async def scrape_one(cfg: dict) -> list[dict]:
-        async with semaphore:
-            country  = cfg.get("country", "si")
-            source   = cfg.get("source", "overpass")
-            industry = cfg.get("industry", "")
-            limit    = cfg.get("limit", 100)
+    async def scrape_one(cfg: dict, idx: int) -> None:
+        nonlocal completed, total_scraped
 
-            scraper_cls = MapsScraper if source == "maps" else OverpassScraper
+        country  = cfg.get("country", "si")
+        source   = cfg.get("source", "overpass")
+        industry = cfg.get("industry", "")
+        limit    = cfg.get("limit", 100)
 
-            try:
+        scraper_cls = MapsScraper if source == "maps" else OverpassScraper
+
+        try:
+            async with semaphore:
                 async with scraper_cls() as scraper:
-                    results = await scraper.scrape(
+                    batch = await scraper.scrape(
                         industry=industry,
                         country=country,
                         limit=limit,
                     )
-                    logger.info("Overpass %s/%s: %d leadov", country, industry or "*", len(results))
-                    return results
-            except Exception as exc:
-                logger.error("Napaka pri scraping (%s/%s): %s", country, industry, exc)
-                return []
+        except Exception as exc:
+            logger.error("Napaka pri scraping (%s/%s): %s", country, industry, exc)
+            batch = []
 
-    # Obdelaj queries eno po eno — posodabljaj counter sproti
-    for i, cfg in enumerate(configs):
-        if not _running:
-            break
-        batch = await scrape_one(cfg)
-        newly = 0
-        for lead in batch:
-            if insert_lead(lead):
-                total_scraped += 1
-                newly += 1
-
-        if newly > 0 or (i + 1) % 5 == 0:
-            pct = 5 + int((i + 1) / total_configs * 25)  # 5%→30% med scrapingom
-            events.update_pipeline({"scraped": total_scraped, "progress_pct": pct,
-                                    "message": f"[{i+1}/{total_configs}] {cfg.get('country','').upper()} · {total_scraped} leadov"})
+        # Atomično vstavi in posodobi counter
+        async with counter_lock:
+            newly = sum(1 for lead in batch if insert_lead(lead))
+            total_scraped += newly
+            completed += 1
+            pct = 5 + int(completed / total_configs * 25)
+            events.update_pipeline({
+                "scraped": total_scraped,
+                "progress_pct": pct,
+                "message": f"[{completed}/{total_configs}] {country.upper()} · {total_scraped} leadov",
+            })
             if newly > 0:
                 events.add_event(
-                    f"[{i+1}/{total_configs}] {cfg.get('country','').upper()}/{cfg.get('industry','')} → +{newly} leadov (skupaj {total_scraped})",
-                    "success"
+                    f"[{completed}/{total_configs}] {country.upper()}/{industry} → +{newly} (skupaj {total_scraped})",
+                    "success",
                 )
+            logger.info("Overpass %s/%s: %d novih leadov (skupaj %d)", country, industry or "*", newly, total_scraped)
+
+    tasks = [scrape_one(cfg, i) for i, cfg in enumerate(configs)]
+    await asyncio.gather(*tasks)
 
     events.update_pipeline({"scraped": total_scraped})
     return total_scraped

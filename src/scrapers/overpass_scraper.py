@@ -327,7 +327,7 @@ class OverpassScraper(BaseScraper):
         # Inicializiramo BaseScraper sejo (za morebitno detect_website_status)
         await super().__aenter__()
         # Dedikirana Overpass seja z daljšim timeoutom
-        connector = aiohttp.TCPConnector(limit=5, ssl=True)
+        connector = aiohttp.TCPConnector(limit=20, ssl=True)
         timeout = aiohttp.ClientTimeout(total=self.OVERPASS_TIMEOUT)
         self._overpass_session = aiohttp.ClientSession(
             connector=connector,
