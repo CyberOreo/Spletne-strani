@@ -99,14 +99,7 @@ async def run_daily_pipeline(
     if not skip_scrape:
         _set_stage("scraping", "", 5)
         try:
-            leads_raw = await _scrape_bulk(DAILY_BULK_CONFIG, concurrency=SCRAPE_CONCURRENCY)
-            for lead in leads_raw:
-                if insert_lead(lead):
-                    stats["scraped"] += 1
-                    if stats["scraped"] % 100 == 0:
-                        events.update_pipeline({"scraped": stats["scraped"]})
-                        events.add_event(f"Scrapano {stats['scraped']} leadov...", "info")
-            events.update_pipeline({"scraped": stats["scraped"]})
+            stats["scraped"] = await _scrape_bulk(DAILY_BULK_CONFIG, concurrency=SCRAPE_CONCURRENCY)
             events.add_event(f"Scraping končan: {stats['scraped']} novih leadov", "success")
         except Exception as exc:
             logger.error("FAZA 1 napaka (scraping) — nadaljujem: %s", exc, exc_info=True)
@@ -210,14 +203,16 @@ async def run_daily_pipeline(
     return stats
 
 
-async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> list[dict]:
-    """Vzporedno scrapanje — primarno OpenStreetMap Overpass API."""
+async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> int:
+    """Zaporedno scrapanje z real-time counter posodobitvami.
+    Vrne skupno število novo vstavljenih leadov."""
     from src.scrapers.overpass_scraper import OverpassScraper
     from src.scrapers.maps_scraper import MapsScraper
+    from src.database import insert_lead
 
-    # Manjša concurrency za Overpass da ne preobremenimo API-ja
     semaphore = asyncio.Semaphore(concurrency)
-    all_results: list[dict] = []
+    total_scraped = 0
+    total_configs = len(configs)
 
     async def scrape_one(cfg: dict) -> list[dict]:
         async with semaphore:
@@ -226,11 +221,7 @@ async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> list[dict]:
             industry = cfg.get("industry", "")
             limit    = cfg.get("limit", 100)
 
-            if source == "maps":
-                scraper_cls = MapsScraper
-            else:
-                # Privzeto: Overpass (OpenStreetMap) — brezplačen, brez ključev
-                scraper_cls = OverpassScraper
+            scraper_cls = MapsScraper if source == "maps" else OverpassScraper
 
             try:
                 async with scraper_cls() as scraper:
@@ -245,16 +236,29 @@ async def _scrape_bulk(configs: list[dict], concurrency: int = 1) -> list[dict]:
                 logger.error("Napaka pri scraping (%s/%s): %s", country, industry, exc)
                 return []
 
-    tasks = [scrape_one(cfg) for cfg in configs]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    # Obdelaj queries eno po eno — posodabljaj counter sproti
+    for i, cfg in enumerate(configs):
+        if not _running:
+            break
+        batch = await scrape_one(cfg)
+        newly = 0
+        for lead in batch:
+            if insert_lead(lead):
+                total_scraped += 1
+                newly += 1
 
-    for r in results:
-        if isinstance(r, list):
-            all_results.extend(r)
-        elif isinstance(r, Exception):
-            logger.error("Scraping task napaka: %s", r)
+        if newly > 0 or (i + 1) % 5 == 0:
+            pct = 5 + int((i + 1) / total_configs * 25)  # 5%→30% med scrapingom
+            events.update_pipeline({"scraped": total_scraped, "progress_pct": pct,
+                                    "message": f"[{i+1}/{total_configs}] {cfg.get('country','').upper()} · {total_scraped} leadov"})
+            if newly > 0:
+                events.add_event(
+                    f"[{i+1}/{total_configs}] {cfg.get('country','').upper()}/{cfg.get('industry','')} → +{newly} leadov (skupaj {total_scraped})",
+                    "success"
+                )
 
-    return all_results
+    events.update_pipeline({"scraped": total_scraped})
+    return total_scraped
 
 
 async def _generate_previews_for_replies() -> None:

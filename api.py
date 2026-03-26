@@ -495,7 +495,6 @@ async def _run_pipeline_bg(dry_run: bool) -> None:
 
 async def _scrape_bg(country: str, industry: str, limit: int) -> None:
     from src.scheduler import _scrape_bulk
-    from src.database import insert_lead
     from src.config import DAILY_BULK_CONFIG
 
     # "all" = scraping vseh EU držav po DAILY_BULK_CONFIG
@@ -504,12 +503,12 @@ async def _scrape_bg(country: str, industry: str, limit: int) -> None:
     else:
         configs = [{"source": "overpass", "country": country, "industry": industry, "limit": limit}]
 
-    _events.update_pipeline({"status": "running", "stage": "scraping", "stage_label": "Scraping leadov"})
-    leads = await _scrape_bulk(configs)
-    inserted = sum(1 for l in leads if insert_lead(l))
+    _events.update_pipeline({"status": "running", "stage": "scraping", "stage_label": "Scraping leadov",
+                              "scraped": 0, "started_at": __import__('datetime').datetime.now().isoformat()})
+    inserted = await _scrape_bulk(configs)
     _events.update_pipeline({"status": "done", "scraped": inserted})
-    _events.add_event(f"Scraping končan: {inserted} novih leadov (skupaj: {len(leads)})", "success")
-    await _broadcast({"type": "scrape_done", "inserted": inserted, "total": len(leads)})
+    _events.add_event(f"Scraping končan: {inserted} novih leadov", "success")
+    await _broadcast({"type": "scrape_done", "inserted": inserted})
 
 
 async def _send_bg(daily_limit: int, dry_run: bool) -> None:
