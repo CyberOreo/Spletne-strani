@@ -6,9 +6,61 @@ const Settings = (() => {
     app.innerHTML = '<div class="loading-screen"><div class="spinner"></div></div>';
 
     let cfg = {};
-    try { cfg = await API.fetchSettings(); } catch (_) {}
+    let srvInfo = {};
+    try { [cfg, srvInfo] = await Promise.all([API.fetchSettings(), API.fetchServerInfo()]); } catch (_) {
+      try { cfg = await API.fetchSettings(); } catch (_) {}
+    }
+
+    const localUrl  = srvInfo.local_url  || 'http://localhost:8000';
+    const phoneUrl  = srvInfo.local_url  || '—';
+    const localOnly = srvInfo.local_ip === '127.0.0.1' || !srvInfo.local_ip;
 
     app.innerHTML = `
+
+      <!-- ── DOSTOP ── -->
+      <div class="section-header">Dostop do aplikacije</div>
+      <div class="card" style="margin-top:0">
+
+        <div style="margin-bottom:14px">
+          <div class="form-label" style="margin-bottom:6px">Na tem računalniku</div>
+          <a href="http://localhost:8000" target="_blank" class="access-link">
+            http://localhost:8000
+          </a>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="form-label" style="margin-bottom:6px">iPhone / telefon (isti WiFi)</div>
+          ${localOnly
+            ? `<div class="form-hint" style="color:var(--yellow)">⚠️ IP ni zaznan — preveri WiFi povezavo</div>`
+            : `<a href="${phoneUrl}" target="_blank" class="access-link access-link-phone">
+                ${phoneUrl}
+               </a>
+               <div class="form-hint">Odpri Safari na iPhonu → vnesi ta naslov → tapni Deli → Dodaj na začetni zaslon</div>`
+          }
+        </div>
+
+        <div style="margin-bottom:4px">
+          <div class="form-label" style="margin-bottom:6px">Dostop od kjerkoli (internet)</div>
+          <div class="form-hint">
+            Potrebuješ <strong style="color:var(--text)">ngrok</strong>:<br>
+            1. Prenesi <a href="#" onclick="return false" style="color:var(--primary-light)">ngrok.com</a> (brezplačno)<br>
+            2. V CMD zaženi: <code style="background:var(--surface);padding:2px 6px;border-radius:4px;font-size:0.85rem">ngrok http 8000</code><br>
+            3. Odpri prikazani <strong style="color:var(--text)">https://xxxx.ngrok.io</strong> link na iPhonu
+          </div>
+        </div>
+      </div>
+
+      <!-- ── POSODOBI SISTEM ── -->
+      <div class="section-header">Posodobi sistem</div>
+      <div class="card" style="margin-top:0">
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">
+          Potegne najnovejše popravke z GitHuba in samodejno restarta strežnik.
+        </div>
+        <button class="btn btn-primary btn-full" id="updateBtn" onclick="Settings._update()">
+          🔄 Posodobi &amp; Restartaj
+        </button>
+        <div id="updateStatus" style="margin-top:10px;font-size:0.82rem;min-height:18px"></div>
+      </div>
 
       <!-- ── EMAIL NASTAVITVE ── -->
       <div class="section-header">Email nastavitve</div>
@@ -234,6 +286,27 @@ const Settings = (() => {
     }
   }
 
+  // ── Posodobi sistem (git pull + restart) ─────────────────────────────────
+
+  async function _update() {
+    const btn = document.getElementById('updateBtn');
+    const el  = document.getElementById('updateStatus');
+    if (btn) btn.disabled = true;
+    if (el)  el.innerHTML = '<span style="color:var(--yellow)">⏳ Posodabljam z GitHuba...</span>';
+    try {
+      const res = await API.triggerUpdate();
+      if (el) el.innerHTML = `<span style="color:var(--green)">✓ ${res.message}</span>
+        <div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted);white-space:pre-wrap">${res.output}</div>`;
+      App.toast('Posodobljeno — strežnik se zaganja...', 'success');
+      // Počakaj 8s da se server restarta, nato refreshaj stran
+      setTimeout(() => location.reload(), 8000);
+    } catch (e) {
+      if (el)  el.innerHTML = `<span style="color:var(--red)">✗ ${e.message}</span>`;
+      if (btn) btn.disabled = false;
+      App.toast('Napaka: ' + e.message, 'error');
+    }
+  }
+
   // ── API URL ───────────────────────────────────────────────────────────────
 
   function _saveURL() {
@@ -283,5 +356,5 @@ const Settings = (() => {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  return { render, _save, _testSMTP, _saveURL, _testAPI, _cleanup, _togglePw };
+  return { render, _save, _testSMTP, _saveURL, _testAPI, _cleanup, _togglePw, _update };
 })();

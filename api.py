@@ -448,6 +448,51 @@ async def api_cleanup(months: int = Query(12)):
     return {"deleted": deleted}
 
 
+@app.get("/api/server-info", summary="Lokalni IP in dostopni naslovi")
+async def api_server_info():
+    """Vrne lokalni IP naslov za dostop iz telefona na istem WiFi omrežju."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = "127.0.0.1"
+    return {
+        "local_ip": local_ip,
+        "local_url": f"http://{local_ip}:8000",
+        "localhost_url": "http://localhost:8000",
+    }
+
+
+@app.post("/api/update", summary="Git pull + restart strežnika")
+async def api_update(background_tasks: BackgroundTasks):
+    """Potegne najnovejše spremembe z GitHuba in restarta strežnik."""
+    import subprocess, threading, os
+    cwd = str(Path(__file__).parent)
+    result = subprocess.run(
+        ["git", "pull"],
+        capture_output=True, text=True, cwd=cwd, timeout=60,
+    )
+    output = (result.stdout + result.stderr).strip()
+    already_latest = "Already up to date" in output or "že posodobljeno" in output.lower()
+
+    if result.returncode != 0:
+        raise HTTPException(500, f"Git pull napaka: {output}")
+
+    def _restart():
+        import time; time.sleep(1)
+        os._exit(0)  # watchdog v start.bat bo samodejno zagnal nov proces
+
+    threading.Thread(target=_restart, daemon=True).start()
+    return {
+        "ok": True,
+        "output": output,
+        "already_latest": already_latest,
+        "message": "Posodobljeno — strežnik se zaganja (" + ("ni sprememb" if already_latest else "nova verzija") + ")",
+    }
+
+
 @app.get("/api/export/csv", summary="Izvozi leade v CSV", include_in_schema=True)
 async def api_export_csv():
     from src.reporter import export_csv

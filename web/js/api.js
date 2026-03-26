@@ -58,6 +58,10 @@ const API = (() => {
     saveSettings:        (body)       => request('POST', '/api/settings', body),
     testSMTP:            ()           => request('POST', '/api/settings/test-smtp', {}),
 
+    // Server info & update
+    fetchServerInfo:     ()   => request('GET',  '/api/server-info'),
+    triggerUpdate:       ()   => request('POST', '/api/update', {}),
+
     // Export
     exportCSV() {
       window.open((baseURL() || '') + '/api/export/csv', '_blank');

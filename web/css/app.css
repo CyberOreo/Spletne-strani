@@ -244,6 +244,16 @@ body {
 
 .btn-full { width: 100%; }
 
+/* ── Access links ────────────────────────────────────────────────────────────── */
+.access-link {
+  display: block; padding: 10px 14px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--primary-light); font-family: monospace; font-size: 0.9rem;
+  text-decoration: none; word-break: break-all;
+}
+.access-link:active { opacity: 0.7; }
+.access-link-phone { border-color: var(--green); color: var(--green); font-size: 1rem; font-weight: 600; }
+
 /* ── Lists ───────────────────────────────────────────────────────────────────── */
 
 .list { margin: 0; padding: 0; list-style: none; }
