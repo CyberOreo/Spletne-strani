@@ -493,7 +493,17 @@ class OverpassScraper(BaseScraper):
                         logger.warning("OverpassScraper: HTTP %d @ %s — %.100s", resp.status, mirror, body)
                         continue
 
-                    data: dict[str, Any] = await resp.json(content_type=None)
+                    raw = await resp.text()
+                    if not raw or not raw.strip().startswith("{"):
+                        # Prazen ali ne-JSON odgovor (HTML error page) — mirror v 120s cooldown
+                        _mirror_cooldown[mirror] = _time.monotonic() + 120
+                        logger.warning(
+                            "OverpassScraper: neveljavni JSON @ %s (%.30r) — cooldown 120s",
+                            mirror.split("/")[2], raw[:30],
+                        )
+                        continue
+                    import json as _json
+                    data: dict[str, Any] = _json.loads(raw)
                     elements: list[dict] = data.get("elements", [])
                     logger.debug("OverpassScraper: %s vrnil %d elementov", mirror.split("/")[2], len(elements))
                     return elements
@@ -504,7 +514,7 @@ class OverpassScraper(BaseScraper):
                 continue
             except aiohttp.ClientError as exc:
                 logger.warning("OverpassScraper: omrežna napaka @ %s: %s", mirror.split("/")[2], exc)
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 continue
             except Exception as exc:
                 logger.warning("OverpassScraper: napaka @ %s: %s", mirror.split("/")[2], exc)
