@@ -78,6 +78,11 @@ OVERNIGHT_SEND_TIME   = os.getenv("OVERNIGHT_SEND_TIME", DAILY_RUN_TIME)
 # ─── Unsubscribe URL (za List-Unsubscribe header) ─────────────────────────────
 UNSUBSCRIBE_BASE_URL = os.getenv("UNSUBSCRIBE_BASE_URL", "")
 
+# ─── AI email generacija ───────────────────────────────────────────────────────
+# Dodaj ANTHROPIC_API_KEY=sk-ant-... v .env za AI personalizacijo emailov.
+# Brez ključa sistem deluje naprej (template fallback).
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
 # ─── EU — po-državna konfiguracija ───────────────────────────────────────────
 COUNTRIES: dict[str, dict] = {
     "si": {

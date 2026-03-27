@@ -177,10 +177,42 @@ async def api_update_lead(lead_id: str, body: LeadUpdate):
     return {"ok": True}
 
 
-@app.get("/api/emails/pending", summary="Emaili za pošiljanje")
+@app.get("/api/emails/pending", summary="Emaili za pošiljanje (APPROVED)")
 async def api_get_pending_emails(limit: int = Query(50, le=500)):
     emails = get_pending_emails(limit=limit)
     return {"emails": emails, "total": len(emails)}
+
+
+@app.get("/api/emails/drafts", summary="Emaili za pregled (DRAFT)")
+async def api_get_draft_emails(limit: int = Query(500, le=2000)):
+    from src.database import get_draft_emails
+    drafts = get_draft_emails(limit=limit)
+    return {"emails": drafts, "total": len(drafts)}
+
+
+@app.post("/api/emails/approve-all", summary="Odobri vse DRAFT emaile")
+async def api_approve_all_emails():
+    from src.database import get_conn
+    with get_conn() as conn:
+        result = conn.execute(
+            "UPDATE emails SET status='APPROVED' WHERE status='DRAFT'"
+        )
+        approved = result.rowcount
+    return {"ok": True, "approved": approved}
+
+
+@app.post("/api/emails/{email_id}/approve", summary="Odobri email")
+async def api_approve_email(email_id: int):
+    from src.database import approve_email
+    approve_email(email_id)
+    return {"ok": True}
+
+
+@app.post("/api/emails/{email_id}/reject", summary="Zavrni email")
+async def api_reject_email(email_id: int):
+    from src.database import reject_email
+    reject_email(email_id)
+    return {"ok": True}
 
 
 @app.get("/api/emails/{lead_id}", summary="Emaili za lead")

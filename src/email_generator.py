@@ -1,9 +1,10 @@
-"""Generacija personaliziranih emailov iz predlog (multi-jezik)."""
+"""Generacija personaliziranih emailov iz predlog (multi-jezik) z AI opcijo."""
 import logging
 from pathlib import Path
 
 from src.config import (
-    COUNTRIES, SMTP_ACCOUNTS, INDUSTRIJSKO_DEJSTVO, SKD_DEJAVNOSTI
+    COUNTRIES, SMTP_ACCOUNTS, INDUSTRIJSKO_DEJSTVO, SKD_DEJAVNOSTI,
+    ANTHROPIC_API_KEY,
 )
 from src.database import (
     get_leads, save_email_draft, get_conn
@@ -72,6 +73,104 @@ def _get_sender(smtp_index: int = 0) -> dict:
     return {"name": acc.get("name", ""), "phone": acc.get("phone", "")}
 
 
+# ─── AI generacija ────────────────────────────────────────────────────────────
+
+_LANG_NAMES = {
+    "sl": "slovenščini", "hr": "hrvaščini", "de": "nemščini",
+    "it": "italijanščini", "cs": "češčini", "hu": "madžarščini",
+    "pl": "poljščini",    "ro": "romunščini", "sk": "slovaščini",
+}
+
+
+def _generate_with_ai(
+    lead: dict, lang: str, template_type: str,
+    sender_name: str, sender_phone: str,
+) -> tuple[str, str] | None:
+    """Generira email z Anthropic Claude API. Vrne (subject, body) ali None pri napaki/ni ključa."""
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        logger.warning("anthropic paket ni nameščen — pip install anthropic")
+        return None
+
+    lang_name  = _LANG_NAMES.get(lang, "slovenščini")
+    unsub_word = UNSUBSCRIBE_WORD.get(lang, "ODJAVA")
+
+    company  = lead.get("company_name") or ""
+    activity = lead.get("activity") or SKD_DEJAVNOSTI.get(lead.get("skd_code", ""), "storitve")
+    city     = lead.get("city") or lead.get("region") or ""
+    has_web  = lead.get("website_status", "none") not in ("none",)
+    hook     = _get_industry_hook(lead)
+
+    if has_web:
+        problem = f"njihova spletna stran je zastarela in ne prinaša strank"
+    else:
+        problem = f"nimajo spletne strani in so nevidni na Googlu"
+
+    prompt = f"""Napiši kratek, oseben in prepričljiv hladen B2B email v {lang_name}.
+
+PODJETJE:
+- Ime: {company}
+- Dejavnost: {activity}
+- Mesto: {city}
+- Situacija: {problem}
+- Dejstvo o panogi: {hook}
+
+POŠILJATELJ: {sender_name}, {sender_phone}
+
+ZAHTEVE:
+- Pisano v {lang_name} (ne slovenščini, ampak ciljnem jeziku)
+- Max 160 besed v telesu
+- Naslovi lastnika/direktorja osebno, ne podjetja
+- Omeni konkretno: {company}, {activity}, {city}
+- Izpostavi, kaj {company} izgubi brez moderne spletne strani
+- En jasen CTA: 10 minutni klic ta teden, brez obveznosti
+- Profesionalen, a topel ton — ne robotski, ne preveč prodajalni
+
+STROGI FORMAT (nič drugega):
+Zadeva: [predmet emaila v {lang_name}]
+
+[telo emaila]
+
+{sender_name}
+{sender_phone}
+
+---
+[navodilo za odjavo z besedo {unsub_word}]"""
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text.strip()
+        lines = text.splitlines()
+
+        subject = ""
+        body_start = 0
+        for i, line in enumerate(lines):
+            low = line.lower()
+            if any(low.startswith(p) for p in (
+                "zadeva:", "betreff:", "subject:", "oggetto:",
+                "przedmiot:", "tárgy:", "subiect:", "předmět:", "predmet:",
+            )):
+                subject = line.split(":", 1)[1].strip()
+                body_start = i + 1
+                break
+
+        body = "\n".join(lines[body_start:]).strip()
+        if subject and body:
+            logger.debug("AI email generiran za %s (%s)", company, lang)
+            return subject, body
+    except Exception as exc:
+        logger.warning("AI email napaka (%s): %s — fallback na template", company, exc)
+    return None
+
+
 def generate_email(lead: dict, template_type: str = None, smtp_index: int = 0) -> dict | None:
     """
     Generira email za lead. Vrne dict z: subject, body, template_type.
@@ -79,12 +178,29 @@ def generate_email(lead: dict, template_type: str = None, smtp_index: int = 0) -
     if template_type is None:
         template_type = lead.get("recommended_template", "A")
 
-    lang = _get_language(lead)
+    lang   = _get_language(lead)
+    sender = _get_sender(smtp_index)
+
+    # ── 1. Poskusi AI generacijo ──────────────────────────────────────────────
+    ai_result = _generate_with_ai(
+        lead, lang, template_type or "A",
+        sender["name"], sender["phone"],
+    )
+    if ai_result:
+        subject, body_text = ai_result
+        return {
+            "subject": subject,
+            "body": body_text,
+            "template_type": template_type or "A",
+            "lang": lang,
+            "ai_generated": True,
+        }
+
+    # ── 2. Fallback: template sistem ──────────────────────────────────────────
     template_raw = _load_template(lang, template_type)
     if not template_raw:
         return None
 
-    sender = _get_sender(smtp_index)
     greeting = _get_greeting(lead)
     industry_hook = _get_industry_hook(lead)
 
@@ -134,6 +250,7 @@ def generate_email(lead: dict, template_type: str = None, smtp_index: int = 0) -
         "body": body_text,
         "template_type": template_type,
         "lang": lang,
+        "ai_generated": False,
     }
 
 

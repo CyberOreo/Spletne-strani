@@ -281,14 +281,49 @@ def mark_email_replied(lead_id: str) -> None:
     update_lead_status(lead_id, "ODGOVORIL")
 
 
+def get_draft_emails(limit: int = 500) -> list[dict]:
+    """Vrni DRAFT emaile za pregled pred pošiljanjem (preview zaslon)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT e.id, e.lead_id, e.template_type, e.subject, e.body,
+                      l.email AS recipient_email, l.company_name, l.city,
+                      l.country, l.priority, l.activity
+               FROM emails e
+               JOIN leads l ON e.lead_id = l.lead_id
+               WHERE e.status = 'DRAFT'
+                 AND l.disqualified = 0
+                 AND l.email IS NOT NULL
+               ORDER BY
+                 CASE l.priority WHEN 'VISOKA' THEN 1 WHEN 'SREDNJA' THEN 2 ELSE 3 END,
+                 e.id ASC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def approve_email(email_id: int) -> None:
+    """Označi email kot APPROVED — bo poslan v naslednjem ciklu pošiljanja."""
+    with get_conn() as conn:
+        conn.execute("UPDATE emails SET status='APPROVED' WHERE id=?", (email_id,))
+    logger.debug("Email %d odobren", email_id)
+
+
+def reject_email(email_id: int) -> None:
+    """Označi email kot REJECTED — ne bo poslan."""
+    with get_conn() as conn:
+        conn.execute("UPDATE emails SET status='REJECTED' WHERE id=?", (email_id,))
+    logger.debug("Email %d zavrnjen", email_id)
+
+
 def get_pending_emails(limit: int = 50) -> list[dict]:
-    """Vrni emaile z statusom DRAFT, razvrščene po prioriteti leada."""
+    """Vrni emaile z statusom APPROVED, razvrščene po prioriteti leada."""
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT e.*, l.email AS recipient_email, l.priority, l.company_name
                FROM emails e
                JOIN leads l ON e.lead_id = l.lead_id
-               WHERE e.status = 'DRAFT'
+               WHERE e.status = 'APPROVED'
                  AND l.disqualified = 0
                  AND l.email IS NOT NULL
                ORDER BY

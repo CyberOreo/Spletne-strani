@@ -1,5 +1,5 @@
 // Service Worker — LeadGen EU PWA
-const CACHE = 'leadgen-v6';
+const CACHE = 'leadgen-v7';
 const SHELL = [
   '/',
   '/web/css/app.css',
@@ -11,6 +11,7 @@ const SHELL = [
   '/web/js/campaign.js',
   '/web/js/reports.js',
   '/web/js/settings.js',
+  '/web/js/emails.js',
 ];
 
 self.addEventListener('install', (e) => {

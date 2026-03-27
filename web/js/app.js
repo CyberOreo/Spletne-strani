@@ -3,6 +3,7 @@ const App = (() => {
   const views = {
     dashboard:    () => Dashboard.render(),
     leads:        () => Leads.render(),
+    emails:       () => Emails.render(),
     campaign:     () => Campaign.render(),
     reports:      () => Reports.render(),
     settings:     () => Settings.render(),
@@ -11,6 +12,7 @@ const App = (() => {
   const titles = {
     dashboard: 'LeadGen EU',
     leads:     'Leadi',
+    emails:    'Pregled emailov',
     campaign:  'Kampanja',
     reports:   'Poročila',
     settings:  'Nastavitve',

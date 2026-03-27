@@ -37,7 +37,11 @@ const API = (() => {
 
     // Emails
     fetchPendingEmails:  (limit)      => request('GET',    `/api/emails/pending?limit=${limit || 50}`),
+    fetchEmailDrafts:    (limit)      => request('GET',    `/api/emails/drafts?limit=${limit || 500}`),
     fetchLeadEmails:     (id)         => request('GET',    `/api/emails/${id}`),
+    approveEmail:        (id)         => request('POST',   `/api/emails/${id}/approve`, {}),
+    rejectEmail:         (id)         => request('POST',   `/api/emails/${id}/reject`, {}),
+    approveAllEmails:    ()           => request('POST',   '/api/emails/approve-all', {}),
 
     // Pipeline
     runDailyPipeline:    (dry_run)    => request('POST',   '/api/run/daily' + (dry_run ? '?dry_run=true' : ''), {}),
