@@ -68,6 +68,17 @@ class EuroPagesScraper(BaseScraper):
                     break
                 data = self._parse(item, skd_code, category, country)
                 if data:
+                    # Obišči detail stran za email, če ga ni v listingu
+                    if not data.get("email"):
+                        detail_link = item.select_one(
+                            "a[href*='/company/'], a[href*='/firma/'], "
+                            "a[href*='/entreprise/'], h2 a, h3 a"
+                        )
+                        if detail_link:
+                            detail_href = detail_link.get("href", "")
+                            if detail_href and "europages" in detail_href:
+                                detail_url = detail_href if detail_href.startswith("http") else EURO_BASE + detail_href
+                                data = await self._enrich_from_detail(data, detail_url)
                     ws = await self.detect_website_status(data.get("website_url"))
                     data.update(ws)
                     results.append(data)
@@ -138,6 +149,24 @@ class EuroPagesScraper(BaseScraper):
         except Exception as exc:
             logger.debug("EuroPages parse napaka: %s", exc)
             return None
+
+    async def _enrich_from_detail(self, data: dict, url: str) -> dict:
+        """Obišči detail stran in izvleče email/telefon, ki ga ni v listingu."""
+        html = await self._get(url)
+        if not html:
+            return data
+        soup = BeautifulSoup(html, "html.parser")
+        if not data.get("email"):
+            em = soup.select_one("a[href^='mailto:']")
+            if em:
+                email = em["href"].replace("mailto:", "").split("?")[0].strip()
+                if "@" in email:
+                    data["email"] = email.lower()
+        if not data.get("phone"):
+            ph = soup.select_one("a[href^='tel:']")
+            if ph:
+                data["phone"] = ph["href"].replace("tel:", "").strip()
+        return data
 
     @staticmethod
     def _detect_country_from_address(address: str) -> str:

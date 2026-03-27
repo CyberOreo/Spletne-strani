@@ -1,7 +1,9 @@
 """Kvalifikacija leadov — 7-kriterijev točkovalni sistem."""
+import functools
 import json
 import logging
 import re
+import socket
 
 from src.config import COUNTRIES
 from src.database import (
@@ -9,6 +11,24 @@ from src.database import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ─── DNS/MX validacija ────────────────────────────────────────────────────────
+
+@functools.lru_cache(maxsize=2000)
+def _domain_has_mx(domain: str) -> bool:
+    """Preverja ali email domena obstaja (DNS lookup). Rezultati se cachirajo."""
+    try:
+        socket.getaddrinfo(domain, None)
+        return True
+    except (socket.gaierror, OSError):
+        return False
+
+
+# Sistemski/noreply email prefiksi — ne moremo pisati na te naslove
+_NOREPLY_PREFIXES = ("noreply", "no-reply", "donotreply", "do-not-reply",
+                     "mailer-daemon", "postmaster", "bounce", "notifications")
+_NOREPLY_DOMAINS  = ("example.com", "example.org", "test.com", "localhost")
 
 # ─── Diskvalifikacijski vzorci ────────────────────────────────────────────────
 CHAIN_KEYWORDS = [
@@ -143,9 +163,21 @@ def should_disqualify(lead: dict) -> tuple[bool, str]:
             return True, f"Državna institucija: {kw}"
 
     # Zahtevaj email — brez emaila ne moremo poslati cold email
-    email = str(lead.get("email") or "").strip()
+    email = str(lead.get("email") or "").strip().lower()
     if not email or "@" not in email or "." not in email.split("@")[-1]:
         return True, "Ni veljavnega email naslova"
+
+    local, domain = email.rsplit("@", 1)
+
+    # Zavrni sistemske/noreply naslove
+    if any(local.startswith(p) for p in _NOREPLY_PREFIXES):
+        return True, f"Sistemski email (noreply): {email}"
+    if domain in _NOREPLY_DOMAINS:
+        return True, f"Testna email domena: {domain}"
+
+    # DNS validacija domene (cached)
+    if not _domain_has_mx(domain):
+        return True, f"Email domena ne obstaja: {domain}"
 
     return False, ""
 
@@ -189,6 +221,53 @@ def determine_template(lead: dict) -> str:
     elif status == "outdated":
         return "B"
     return "A"
+
+
+# ─── Email enrichment iz spletnih strani ─────────────────────────────────────
+
+async def enrich_leads_with_website_emails() -> int:
+    """
+    Za leade ki nimajo emaila a imajo website_url:
+    poizkusi izvleči email iz kontaktnih strani.
+    Vrne število leadov, ki jim je bil email dodan.
+    """
+    from src.scrapers.base_scraper import BaseScraper
+    from src.database import get_conn, get_leads
+
+    class _Extractor(BaseScraper):
+        async def scrape(self, **kwargs) -> list[dict]:
+            return []
+
+    candidates = [
+        l for l in get_leads(disqualified=0)
+        if not l.get("email") and l.get("website_url")
+        and l.get("qualification_score", 0) == 0
+    ]
+
+    if not candidates:
+        return 0
+
+    enriched = 0
+    async with _Extractor() as extractor:
+        for lead in candidates:
+            email = await extractor.extract_email_from_website(lead["website_url"])
+            if email:
+                with get_conn() as conn:
+                    conn.execute(
+                        "UPDATE leads SET email = ? WHERE lead_id = ?",
+                        (email, lead["lead_id"]),
+                    )
+                enriched += 1
+                logger.info(
+                    "Email dodan iz spletne strani: %s → %s",
+                    lead["lead_id"], email,
+                )
+
+    logger.info(
+        "Website email enrichment: %d leadov je dobilo email iz spletne strani",
+        enriched,
+    )
+    return enriched
 
 
 # ─── Glavna funkcija ──────────────────────────────────────────────────────────

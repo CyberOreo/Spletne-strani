@@ -338,55 +338,58 @@ REGIJE_PO_DRZAVAH: dict[str, list[str]] = {
 }
 
 # ─── Dnevni bulk config ────────────────────────────────────────────────────────
-# PRIMARNI VIR: EuroPages (europages.co.uk) — ima EMAIL podatke, pan-EU
-# BACKUP VIR: Overpass/OSM — veliko leadov a redko email → qualifier zavrže brez emaila
+# PRIMARNI VIR: Country-specific scraperji (herold.at, gelbeseiten.de, itd.)
+#   → imajo EMAIL + TELEFON + detail-page enrichment → ~70-80% email coverage
+# BACKUP VIR: EuroPages za Slovaško (ni country-specific scraperja)
 #
 # Kriterij za kvalifikacijo: lead MORA imeti email + NE sme imeti spletne strani
+# Skupaj target: ~3450 leadov/dan
 DAILY_BULK_CONFIG: list[dict] = [
-    # ── EuroPages — PRIMARNI VIR (email podatki) ──────────────────────────────
-    # Slovenija
-    {"source": "euro_pages", "country": "si", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "si", "industry": "electrician", "limit": 150},
-    {"source": "euro_pages", "country": "si", "industry": "hair_salon",  "limit": 100},
-    {"source": "euro_pages", "country": "si", "industry": "accounting",  "limit": 100},
-    # Hrvaška
-    {"source": "euro_pages", "country": "hr", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "hr", "industry": "electrician", "limit": 150},
-    {"source": "euro_pages", "country": "hr", "industry": "restaurant",  "limit": 100},
-    # Avstrija
-    {"source": "euro_pages", "country": "at", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "at", "industry": "electrician", "limit": 150},
-    {"source": "euro_pages", "country": "at", "industry": "hair_salon",  "limit": 100},
-    # Nemčija
-    {"source": "euro_pages", "country": "de", "industry": "plumber",     "limit": 200},
-    {"source": "euro_pages", "country": "de", "industry": "electrician", "limit": 200},
-    {"source": "euro_pages", "country": "de", "industry": "hair_salon",  "limit": 150},
-    {"source": "euro_pages", "country": "de", "industry": "accounting",  "limit": 150},
-    # Italija
-    {"source": "euro_pages", "country": "it", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "it", "industry": "electrician", "limit": 150},
-    {"source": "euro_pages", "country": "it", "industry": "restaurant",  "limit": 100},
-    # Češka
-    {"source": "euro_pages", "country": "cz", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "cz", "industry": "electrician", "limit": 100},
-    # Slovaška
+    # ── SI — BiziScraper (bizi.si, detail-page enrichment, najboljša kakovost) ─
+    {"source": "bizi", "country": "si", "industry": "plumber",     "limit": 100},
+    {"source": "bizi", "country": "si", "industry": "electrician", "limit": 100},
+    {"source": "bizi", "country": "si", "industry": "hair_salon",  "limit": 100},
+    {"source": "bizi", "country": "si", "industry": "accounting",  "limit": 100},
+
+    # ── HR — HrScraper (zlatne-stranice.hr) ───────────────────────────────────
+    {"source": "hr", "country": "hr", "industry": "plumber",     "limit": 150},
+    {"source": "hr", "country": "hr", "industry": "electrician", "limit": 150},
+    {"source": "hr", "country": "hr", "industry": "restaurant",  "limit": 100},
+
+    # ── AT — AtScraper (herold.at) ────────────────────────────────────────────
+    {"source": "at", "country": "at", "industry": "plumber",     "limit": 150},
+    {"source": "at", "country": "at", "industry": "electrician", "limit": 150},
+    {"source": "at", "country": "at", "industry": "hair_salon",  "limit": 100},
+
+    # ── DE — DeScraper (gelbeseiten.de) — največji trg ────────────────────────
+    {"source": "de", "country": "de", "industry": "plumber",     "limit": 200},
+    {"source": "de", "country": "de", "industry": "electrician", "limit": 200},
+    {"source": "de", "country": "de", "industry": "hair_salon",  "limit": 150},
+    {"source": "de", "country": "de", "industry": "accounting",  "limit": 150},
+
+    # ── IT — ItScraper (paginebianche.it) ────────────────────────────────────
+    {"source": "it", "country": "it", "industry": "plumber",     "limit": 150},
+    {"source": "it", "country": "it", "industry": "electrician", "limit": 150},
+    {"source": "it", "country": "it", "industry": "restaurant",  "limit": 100},
+
+    # ── PL — PlScraper (panoramafirm.pl) ─────────────────────────────────────
+    {"source": "pl", "country": "pl", "industry": "plumber",     "limit": 200},
+    {"source": "pl", "country": "pl", "industry": "electrician", "limit": 150},
+    {"source": "pl", "country": "pl", "industry": "hair_salon",  "limit": 100},
+
+    # ── CZ — CzScraper ───────────────────────────────────────────────────────
+    {"source": "cz", "country": "cz", "industry": "plumber",     "limit": 150},
+    {"source": "cz", "country": "cz", "industry": "electrician", "limit": 100},
+
+    # ── HU — HuScraper ───────────────────────────────────────────────────────
+    {"source": "hu", "country": "hu", "industry": "plumber",     "limit": 150},
+    {"source": "hu", "country": "hu", "industry": "electrician", "limit": 100},
+
+    # ── RO — RoScraper ───────────────────────────────────────────────────────
+    {"source": "ro", "country": "ro", "industry": "plumber",     "limit": 150},
+    {"source": "ro", "country": "ro", "industry": "electrician", "limit": 100},
+
+    # ── SK — EuroPages (ni country-specific scraperja za SK) ─────────────────
     {"source": "euro_pages", "country": "sk", "industry": "plumber",     "limit": 100},
     {"source": "euro_pages", "country": "sk", "industry": "electrician", "limit": 100},
-    # Madžarska
-    {"source": "euro_pages", "country": "hu", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "hu", "industry": "electrician", "limit": 100},
-    # Poljska
-    {"source": "euro_pages", "country": "pl", "industry": "plumber",     "limit": 200},
-    {"source": "euro_pages", "country": "pl", "industry": "electrician", "limit": 150},
-    {"source": "euro_pages", "country": "pl", "industry": "hair_salon",  "limit": 100},
-    # Romunija
-    {"source": "euro_pages", "country": "ro", "industry": "plumber",     "limit": 150},
-    {"source": "euro_pages", "country": "ro", "industry": "electrician", "limit": 100},
-
-    # ── Overpass/OSM — BACKUP (volume, redko email → qualifier zavrže) ─────────
-    {"source": "overpass", "country": "si", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "de", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "at", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "pl", "industry": "plumber",     "limit": 100},
-    {"source": "overpass", "country": "it", "industry": "restaurant",  "limit": 100},
 ]

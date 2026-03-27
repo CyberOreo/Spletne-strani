@@ -11,12 +11,26 @@ import schedule
 
 from src.config import (
     DAILY_RUN_TIME, DAILY_EMAIL_LIMIT, DAILY_BULK_CONFIG, SCRAPE_CONCURRENCY,
-    OVERNIGHT_SCRAPE_TIME, OVERNIGHT_SEND_TIME,
+    OVERNIGHT_SCRAPE_TIME, OVERNIGHT_SEND_TIME, REGIJE_PO_DRZAVAH,
 )
 from src.database import init_db, gdpr_cleanup
 from src import events
 
 logger = logging.getLogger(__name__)
+
+# ─── Country-specific scraper routing ────────────────────────────────────────
+# Te scraperje kličemo z (industry, region, limit) — brez country parametra
+COUNTRY_SCRAPERS: dict[str, tuple[str, str]] = {
+    "at":   ("src.scrapers.country_scrapers.at_scraper",  "AtScraper"),
+    "de":   ("src.scrapers.country_scrapers.de_scraper",  "DeScraper"),
+    "it":   ("src.scrapers.country_scrapers.it_scraper",  "ItScraper"),
+    "hr":   ("src.scrapers.country_scrapers.hr_scraper",  "HrScraper"),
+    "pl":   ("src.scrapers.country_scrapers.pl_scraper",  "PlScraper"),
+    "cz":   ("src.scrapers.country_scrapers.cz_scraper",  "CzScraper"),
+    "hu":   ("src.scrapers.country_scrapers.hu_scraper",  "HuScraper"),
+    "ro":   ("src.scrapers.country_scrapers.ro_scraper",  "RoScraper"),
+    "bizi": ("src.scrapers.bizi_scraper",                 "BiziScraper"),
+}
 
 _running = False
 _scheduler_thread: threading.Thread | None = None
@@ -105,6 +119,15 @@ async def run_daily_pipeline(
             logger.error("FAZA 1 napaka (scraping) — nadaljujem: %s", exc, exc_info=True)
             events.add_event(f"Scraping napaka: {exc}", "error")
             events.update_pipeline({"errors": events.get_state().get("errors", 0) + 1})
+
+    # ── 1.5 EMAIL ENRICHMENT — izvleči emaile iz spletnih strani ──────────────
+    try:
+        from src.qualifier import enrich_leads_with_website_emails
+        enriched = await enrich_leads_with_website_emails()
+        if enriched > 0:
+            events.add_event(f"Email enrichment: +{enriched} emailov iz spletnih strani", "success")
+    except Exception as exc:
+        logger.warning("Email enrichment napaka — nadaljujem: %s", exc)
 
     # ── 2. KVALIFIKACIJA ───────────────────────────────────────────────────────
     _set_stage("qualify", "", 30)
@@ -225,22 +248,37 @@ async def _scrape_bulk(configs: list[dict], concurrency: int = 4) -> int:
         industry = cfg.get("industry", "")
         limit    = cfg.get("limit", 100)
 
+        is_country_scraper = source in COUNTRY_SCRAPERS
         if source == "maps":
             scraper_cls = MapsScraper
         elif source == "euro_pages":
             from src.scrapers.euro_pages_scraper import EuroPagesScraper
             scraper_cls = EuroPagesScraper
+        elif is_country_scraper:
+            import importlib
+            mod_path, cls_name = COUNTRY_SCRAPERS[source]
+            mod = importlib.import_module(mod_path)
+            scraper_cls = getattr(mod, cls_name)
         else:
             scraper_cls = OverpassScraper
 
         try:
             async with semaphore:
                 async with scraper_cls() as scraper:
-                    batch = await scraper.scrape(
-                        industry=industry,
-                        country=country,
-                        limit=limit,
-                    )
+                    if is_country_scraper:
+                        # Country scraperji: region namesto country
+                        region = cfg.get("region") or (REGIJE_PO_DRZAVAH.get(country) or [""])[0]
+                        batch = await scraper.scrape(
+                            industry=industry,
+                            region=region,
+                            limit=limit,
+                        )
+                    else:
+                        batch = await scraper.scrape(
+                            industry=industry,
+                            country=country,
+                            limit=limit,
+                        )
         except Exception as exc:
             logger.error("Napaka pri scraping (%s/%s): %s", country, industry, exc)
             batch = []
@@ -261,7 +299,7 @@ async def _scrape_bulk(configs: list[dict], concurrency: int = 4) -> int:
                     f"[{completed}/{total_configs}] {country.upper()}/{industry} → +{newly} (skupaj {total_scraped})",
                     "success",
                 )
-            logger.info("Overpass %s/%s: %d novih leadov (skupaj %d)", country, industry or "*", newly, total_scraped)
+            logger.info("%s %s/%s: %d novih leadov (skupaj %d)", source.upper(), country, industry or "*", newly, total_scraped)
 
     tasks = [scrape_one(cfg, i) for i, cfg in enumerate(configs)]
     await asyncio.gather(*tasks)

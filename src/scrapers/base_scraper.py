@@ -156,6 +156,31 @@ class BaseScraper(ABC):
                     return year
         return None
 
+    # ─── Email ekstrakcija s kontaktnih strani ────────────────────────────────
+
+    _CONTACT_PATHS = [
+        "/kontakt", "/contact", "/contacts", "/kontakty", "/contatti",
+        "/kontakte", "/impressum", "/imprint", "/o-nas", "/about",
+        "/uber-uns", "/chi-siamo", "/about-us",
+    ]
+    _EMAIL_RE = re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}')
+    _EMAIL_SKIP = ("noreply", "no-reply", "example", "test", "sentry",
+                   "mailer-daemon", "wordpress", "woocommerce", "placeholder")
+
+    async def extract_email_from_website(self, base_url: str) -> str | None:
+        """Išče email na kontaktnih straneh podjetja (za leade ki imajo website a nimajo emaila)."""
+        if not base_url or not base_url.startswith("http"):
+            return None
+        base = base_url.rstrip("/")
+        for path in self._CONTACT_PATHS:
+            html = await self._get(base + path)
+            if html:
+                for email in self._EMAIL_RE.findall(html):
+                    el = email.lower()
+                    if not any(skip in el for skip in self._EMAIL_SKIP):
+                        return el
+        return None
+
     @staticmethod
     def _extract_city_from_address(address: str) -> str:
         """Izvleče ime mesta iz naslova (format: Ulica 1, 1000 Mesto)."""
